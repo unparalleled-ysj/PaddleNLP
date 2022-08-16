@@ -122,3 +122,7 @@ FETCH_HEAD
 
 # vscode
 .vscode
+
+# experiments
+task/
+resource/
