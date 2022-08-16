@@ -71,8 +71,8 @@ def convert_example(example,
         token_type_ids(obj: `list[int]`): List of sequence pair mask. 
     """
     encoded_inputs = tokenizer(text=example, max_seq_len=max_seq_length)
-    input_ids = encoded_inputs["input_ids"]
-    token_type_ids = encoded_inputs["token_type_ids"]
+    input_ids = np.array(encoded_inputs["input_ids"], dtype="int64")
+    token_type_ids = np.array(encoded_inputs["token_type_ids"], dtype="int64")
 
     return input_ids, token_type_ids
 
@@ -150,7 +150,10 @@ if __name__ == "__main__":
         model.set_dict(state_dict)
         print("Loaded parameters from %s" % args.params_path)
 
-    results = predict(
-        model, data, tokenizer, label_map, batch_size=args.batch_size)
+    results = predict(model,
+                      data,
+                      tokenizer,
+                      label_map,
+                      batch_size=args.batch_size)
     for idx, text in enumerate(data):
         print('Data: {} \t Label: {}'.format(text, results[idx]))

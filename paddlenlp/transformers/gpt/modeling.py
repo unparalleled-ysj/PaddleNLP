@@ -33,6 +33,7 @@ __all__ = [
     'GPTLMHeadModel',
     'GPTForTokenClassification',
     'GPTForSequenceClassification',
+    'GPTForCausalLM',
 ]
 
 
@@ -73,17 +74,27 @@ class MultiHeadAttention(nn.Layer):
         if self.fuse:
             assert self.kdim == embed_dim
             assert self.vdim == embed_dim
-            self.qkv_proj = nn.Linear(
-                embed_dim, 3 * embed_dim, weight_attr, bias_attr=bias_attr)
+            self.qkv_proj = nn.Linear(embed_dim,
+                                      3 * embed_dim,
+                                      weight_attr,
+                                      bias_attr=bias_attr)
         else:
-            self.q_proj = nn.Linear(
-                embed_dim, embed_dim, weight_attr, bias_attr=bias_attr)
-            self.k_proj = nn.Linear(
-                self.kdim, embed_dim, weight_attr, bias_attr=bias_attr)
-            self.v_proj = nn.Linear(
-                self.vdim, embed_dim, weight_attr, bias_attr=bias_attr)
-        self.out_proj = nn.Linear(
-            embed_dim, embed_dim, weight_attr, bias_attr=bias_attr)
+            self.q_proj = nn.Linear(embed_dim,
+                                    embed_dim,
+                                    weight_attr,
+                                    bias_attr=bias_attr)
+            self.k_proj = nn.Linear(self.kdim,
+                                    embed_dim,
+                                    weight_attr,
+                                    bias_attr=bias_attr)
+            self.v_proj = nn.Linear(self.vdim,
+                                    embed_dim,
+                                    weight_attr,
+                                    bias_attr=bias_attr)
+        self.out_proj = nn.Linear(embed_dim,
+                                  embed_dim,
+                                  weight_attr,
+                                  bias_attr=bias_attr)
 
     def _fuse_prepare_qkv(self, query):
         mix_layer = self.qkv_proj(query)
@@ -187,19 +198,20 @@ class MultiHeadAttention(nn.Layer):
             q, k, v, cache = self._prepare_qkv(query, key, value, use_cache,
                                                cache)
         # scale dot product attention
-        product = layers.matmul(
-            x=q, y=k, transpose_y=True, alpha=self.head_dim**-0.5)
+        product = layers.matmul(x=q,
+                                y=k,
+                                transpose_y=True,
+                                alpha=self.head_dim**-0.5)
 
         if attn_mask is not None:
             product = product + attn_mask
 
         weights = F.softmax(product)
         if self.dropout:
-            weights = F.dropout(
-                weights,
-                self.dropout,
-                training=self.training,
-                mode="upscale_in_train")
+            weights = F.dropout(weights,
+                                self.dropout,
+                                training=self.training,
+                                mode="upscale_in_train")
 
         out = tensor.matmul(weights, v)
 
@@ -331,23 +343,30 @@ class TransformerDecoderLayer(nn.Layer):
         weight_attrs = _convert_param_attr_to_list(weight_attr, 3)
         bias_attrs = _convert_param_attr_to_list(bias_attr, 3)
 
-        self.self_attn = MultiHeadAttention(
-            d_model,
-            nhead,
-            dropout=attn_dropout,
-            weight_attr=weight_attrs[0],
-            bias_attr=bias_attrs[0],
-            topo=topo)
-        self.linear1 = nn.Linear(
-            d_model, dim_feedforward, weight_attrs[2], bias_attr=bias_attrs[2])
-        self.linear2 = nn.Linear(
-            dim_feedforward, d_model, weight_attrs[2], bias_attr=bias_attrs[2])
+        self.self_attn = MultiHeadAttention(d_model,
+                                            nhead,
+                                            dropout=attn_dropout,
+                                            weight_attr=weight_attrs[0],
+                                            bias_attr=bias_attrs[0],
+                                            topo=topo)
+        self.linear1 = nn.Linear(d_model,
+                                 dim_feedforward,
+                                 weight_attrs[2],
+                                 bias_attr=bias_attrs[2])
+        self.linear2 = nn.Linear(dim_feedforward,
+                                 d_model,
+                                 weight_attrs[2],
+                                 bias_attr=bias_attrs[2])
 
         self.norm1 = nn.LayerNorm(d_model, epsilon=1e-5)
         self.norm2 = nn.LayerNorm(d_model, epsilon=1e-5)
         self.dropout1 = nn.Dropout(dropout, mode="upscale_in_train")
         self.dropout2 = nn.Dropout(act_dropout, mode="upscale_in_train")
-        self.activation = getattr(F, activation)
+
+        if activation == 'gelu':
+            self.activation = nn.GELU(approximate=True)
+        else:
+            self.activation = getattr(F, activation)
 
     def forward(self, tgt, memory, tgt_mask=None, use_cache=False, cache=None):
         residual = tgt
@@ -367,9 +386,7 @@ class TransformerDecoderLayer(nn.Layer):
         residual = tgt
         if self.normalize_before:
             tgt = self.norm2(tgt)
-        tgt = self.dropout2(
-            self.linear2(F.gelu(
-                self.linear1(tgt), approximate=True)))
+        tgt = self.dropout2(self.linear2(self.activation(self.linear1(tgt))))
         tgt = residual + tgt
 
         if not self.normalize_before:
@@ -378,8 +395,8 @@ class TransformerDecoderLayer(nn.Layer):
         return tgt if use_cache is False else (tgt, incremental_cache)
 
     def gen_cache(self, memory):
-        incremental_cache = self.self_attn.gen_cache(
-            memory, type=self.self_attn.Cache)
+        incremental_cache = self.self_attn.gen_cache(memory,
+                                                     type=self.self_attn.Cache)
         return incremental_cache
 
 
@@ -400,18 +417,14 @@ class GPTEmbeddings(nn.Layer):
         self.word_embeddings = nn.Embedding(
             vocab_size,
             hidden_size,
-            weight_attr=paddle.ParamAttr(
-                name="word_embeddings",
-                initializer=nn.initializer.Normal(
-                    mean=0.0, std=initializer_range)))
+            weight_attr=paddle.ParamAttr(initializer=nn.initializer.Normal(
+                mean=0.0, std=initializer_range)))
 
         self.position_embeddings = nn.Embedding(
             max_position_embeddings,
             hidden_size,
-            weight_attr=paddle.ParamAttr(
-                name="pos_embeddings",
-                initializer=nn.initializer.Normal(
-                    mean=0.0, std=initializer_range)))
+            weight_attr=paddle.ParamAttr(initializer=nn.initializer.Normal(
+                mean=0.0, std=initializer_range)))
 
         self.dropout = nn.Dropout(hidden_dropout_prob)
 
@@ -503,6 +516,36 @@ class GPTPretrainedModel(PretrainedModel):
             "eos_token_id": 50256,
             "eol_token_id": 198,
         },
+        "gpt2-xl-en": { # 1558M
+            "vocab_size": 50257,
+            "hidden_size": 1600,
+            "num_hidden_layers": 48,
+            "num_attention_heads": 25,
+            "intermediate_size": 6400,
+            "hidden_act": "gelu",
+            "hidden_dropout_prob": 0.1,
+            "attention_probs_dropout_prob": 0.1,
+            "max_position_embeddings": 1024,
+            "type_vocab_size": 1,  # no use
+            "initializer_range": 0.02,
+            "eos_token_id": 50256,
+            "eol_token_id": 198,
+        },
+        "gpt2-large-en": { # 774M
+            "vocab_size": 50257,
+            "hidden_size": 1280,
+            "num_hidden_layers": 36,
+            "num_attention_heads": 20,
+            "intermediate_size": 5120,
+            "hidden_act": "gelu",
+            "hidden_dropout_prob": 0.1,
+            "attention_probs_dropout_prob": 0.1,
+            "max_position_embeddings": 1024,
+            "type_vocab_size": 1,  # no use
+            "initializer_range": 0.02,
+            "eos_token_id": 50256,
+            "eol_token_id": 198,
+        },
         "gpt2-medium-en": { #345M
             "vocab_size": 50304,
             "hidden_size": 1024,
@@ -519,7 +562,7 @@ class GPTPretrainedModel(PretrainedModel):
             "eol_token_id": 198,
         },
         "gpt2-en": { #117M
-            "vocab_size": 50304,
+            "vocab_size": 50257,
             "hidden_size": 768,
             "num_hidden_layers": 12,
             "num_attention_heads": 12,
@@ -553,11 +596,17 @@ class GPTPretrainedModel(PretrainedModel):
     pretrained_resource_files_map = {
         "model_state": {
             "gpt-cpm-large-cn":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/gpt/gpt-cpm-large-cn.pdparams",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/gpt/gpt-cpm-large-cn.pdparams",
             "gpt-cpm-small-cn-distill":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/gpt/gpt-cpm-small-cn-distill.pdparams",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/gpt/gpt-cpm-small-cn-distill.pdparams",
+            "gpt2-en":
+            "https://bj.bcebos.com/paddlenlp/models/transformers/gpt/gpt2-en.pdparams",
             "gpt2-medium-en":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/gpt/gpt2-medium-en.pdparams",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/gpt/gpt2-medium-en.pdparams",
+            "gpt2-large-en":
+            "https://bj.bcebos.com/paddlenlp/models/transformers/gpt/gpt2-large-en.pdparams",
+            "gpt2-xl-en":
+            "https://bj.bcebos.com/paddlenlp/models/transformers/gpt/gpt2-xl-en.pdparams",
         }
     }
     base_model_prefix = "gpt"
@@ -571,12 +620,11 @@ class GPTPretrainedModel(PretrainedModel):
             # and reset the `state_dict` to update parameter in static mode.
             if isinstance(layer.weight, paddle.Tensor):
                 layer.weight.set_value(
-                    paddle.tensor.normal(
-                        mean=0.0,
-                        std=self.initializer_range
-                        if hasattr(self, "initializer_range") else
-                        self.gpt.config["initializer_range"],
-                        shape=layer.weight.shape))
+                    paddle.tensor.normal(mean=0.0,
+                                         std=self.initializer_range if hasattr(
+                                             self, "initializer_range") else
+                                         self.gpt.config["initializer_range"],
+                                         shape=layer.weight.shape))
 
 
 @register_base_model
@@ -664,10 +712,11 @@ class GPTModel(GPTPretrainedModel):
         self.hidden_size = hidden_size
         self.vocab_size = vocab_size
 
-        self.embeddings = GPTEmbeddings(
-            vocab_size, hidden_size, hidden_dropout_prob,
-            max_position_embeddings, type_vocab_size, self.initializer_range,
-            topo)
+        self.embeddings = GPTEmbeddings(vocab_size, hidden_size,
+                                        hidden_dropout_prob,
+                                        max_position_embeddings,
+                                        type_vocab_size, self.initializer_range,
+                                        topo)
 
         decoder_layers = nn.LayerList()
         for i in range(num_hidden_layers):
@@ -686,12 +735,11 @@ class GPTModel(GPTPretrainedModel):
                     bias_attr=None,
                     topo=topo))
 
-        self.decoder = TransformerDecoder(
-            decoder_layers,
-            num_hidden_layers,
-            norm="LayerNorm",
-            hidden_size=hidden_size,
-            topo=topo)
+        self.decoder = TransformerDecoder(decoder_layers,
+                                          num_hidden_layers,
+                                          norm="LayerNorm",
+                                          hidden_size=hidden_size,
+                                          topo=topo)
 
         self.apply(self.init_weights)
         self.checkpoints = []
@@ -756,36 +804,36 @@ class GPTModel(GPTPretrainedModel):
             past_length = 0
             if cache is not None:
                 past_length = paddle.shape(cache[0].k)[-2]
-            position_ids = paddle.arange(
-                past_length,
-                paddle.shape(input_ids)[-1] + past_length,
-                dtype=input_ids.dtype)
+            position_ids = paddle.arange(past_length,
+                                         paddle.shape(input_ids)[-1] +
+                                         past_length,
+                                         dtype=input_ids.dtype)
             position_ids = position_ids.unsqueeze(0)
             # .expand_as(input_ids)
-            position_ids = paddle.expand_as(position_ids, input_ids)
-        embedding_output = self.embeddings(
-            input_ids=input_ids, position_ids=position_ids)
+            position_ids = paddle.fluid.layers.expand_as(
+                position_ids, input_ids)
+        embedding_output = self.embeddings(input_ids=input_ids,
+                                           position_ids=position_ids)
 
         # TODO, use registered buffer
-        causal_mask = paddle.tensor.triu(
-            paddle.ones((paddle.shape(input_ids)[-1],
-                         paddle.shape(input_ids)[-1])) * -1e9,
-            diagonal=1)
+        causal_mask = paddle.tensor.triu(paddle.ones(
+            (paddle.shape(input_ids)[-1], paddle.shape(input_ids)[-1])) * -1e4,
+                                         diagonal=1)
 
         if attention_mask is not None:
+            if len(attention_mask.shape) == 2:
+                attention_mask = attention_mask[:, None, None, :]
             attention_mask = attention_mask + causal_mask
         else:
             attention_mask = causal_mask
-
         # The tensor returned by triu not in static graph.
         attention_mask.stop_gradient = True
 
-        encoder_outputs = self.decoder(
-            embedding_output,
-            memory=None,
-            tgt_mask=attention_mask,
-            use_cache=use_cache,
-            cache=cache)
+        encoder_outputs = self.decoder(embedding_output,
+                                       memory=None,
+                                       tgt_mask=attention_mask,
+                                       use_cache=use_cache,
+                                       cache=cache)
         self.checkpoints.extend(self.decoder.checkpoints)
         return encoder_outputs
 
@@ -859,10 +907,9 @@ class GPTForPretraining(GPTPretrainedModel):
             encoder_outputs, cached_kvs = outputs[:2]
         else:
             encoder_outputs = outputs
-        logits = paddle.matmul(
-            encoder_outputs,
-            self.gpt.embeddings.word_embeddings.weight,
-            transpose_y=True)
+        logits = paddle.matmul(encoder_outputs,
+                               self.gpt.embeddings.word_embeddings.weight,
+                               transpose_y=True)
 
         if use_cache:
             return logits, cached_kvs
@@ -923,7 +970,7 @@ class GPTForGreedyGeneration(GPTPretrainedModel):
     def __init__(self, gpt, max_predict_len, eol_token_id=3):
         super(GPTForGreedyGeneration, self).__init__()
         self.gpt = gpt
-        self.max_predict_len = max_predict_len
+        self.max_predict_len = paddle.to_tensor(max_predict_len, dtype='int32')
         self.eol_token_id = eol_token_id
         self.apply(self.init_weights)
 
@@ -965,10 +1012,9 @@ class GPTForGreedyGeneration(GPTPretrainedModel):
             encoder_outputs, cached_kvs = outputs[:2]
         else:
             encoder_outputs = outputs
-        logits = paddle.matmul(
-            encoder_outputs,
-            self.gpt.embeddings.word_embeddings.weight,
-            transpose_y=True)
+        logits = paddle.matmul(encoder_outputs,
+                               self.gpt.embeddings.word_embeddings.weight,
+                               transpose_y=True)
 
         if use_cache:
             return logits, cached_kvs
@@ -992,8 +1038,9 @@ class GPTForGreedyGeneration(GPTPretrainedModel):
         src_ids = paddle.concat([src_ids, nid], axis=1)
         cur_len = 0
         while (cur_len < self.max_predict_len):
-            output, cached_kvs = self.model(
-                nid, use_cache=True, cache=cached_kvs)
+            output, cached_kvs = self.model(nid,
+                                            use_cache=True,
+                                            cache=cached_kvs)
 
             nid = paddle.argmax(output[:, -1, :], axis=-1).reshape([-1, 1])
             src_ids = paddle.concat([src_ids, nid], axis=1)
@@ -1004,6 +1051,7 @@ class GPTForGreedyGeneration(GPTPretrainedModel):
 
 
 class GPTLMHead(nn.Layer):
+
     def __init__(self, hidden_size, vocab_size, embedding_weights=None):
         super(GPTLMHead, self).__init__()
         self.decoder_weight = self.create_parameter(
@@ -1012,8 +1060,9 @@ class GPTLMHead(nn.Layer):
             is_bias=True) if embedding_weights is None else embedding_weights
 
     def forward(self, hidden_states):
-        logits = paddle.tensor.matmul(
-            hidden_states, self.decoder_weight, transpose_y=True)
+        logits = paddle.tensor.matmul(hidden_states,
+                                      self.decoder_weight,
+                                      transpose_y=True)
         return logits
 
 
@@ -1089,6 +1138,22 @@ class GPTLMHeadModel(GPTPretrainedModel):
             raise AttributeError(
                 "'beam_search' is not supported yet in the faster version of GPT"
             )
+        # Currently, FasterTransformer only support restricted size_per_head.
+        size_per_head = self.gpt.config["hidden_size"] // self.gpt.config[
+            "num_attention_heads"]
+        if size_per_head not in [32, 64, 80, 96, 128]:
+            raise AttributeError(
+                "'size_per_head = %d' is not supported yet in the faster version of GPT"
+                % size_per_head)
+        if kwargs['forced_bos_token_id'] is not None:
+            # not support for min_length yet in the faster version
+            raise AttributeError(
+                "'forced_bos_token_id != None' is not supported yet in the faster version"
+            )
+        if kwargs['min_length'] != 0:
+            # not support for min_length yet in the faster version
+            raise AttributeError(
+                "'min_length != 0' is not supported yet in the faster version")
         self._faster_entry = FasterGPT(
             self, use_fp16_decoding=use_fp16_decoding).forward
         return self._faster_entry
@@ -1101,13 +1166,16 @@ class GPTLMHeadModel(GPTPretrainedModel):
         # only last token for inputs_ids if cache is defined in kwargs
         position_ids = kwargs.get("position_ids", None)
         attention_mask = kwargs.get("attention_mask", None)
+        if attention_mask is not None:
+            if len(attention_mask.shape) == 4:
+                attention_mask = attention_mask[:, -1, -1, :]
+            if "int" in paddle.common_ops_import.convert_dtype(
+                    attention_mask.dtype):
+                attention_mask = (1.0 - attention_mask) * -1e4
         if cache is not None:
             input_ids = input_ids[:, -1].unsqueeze(-1)
             if position_ids is not None:
                 position_ids = position_ids[:, -1].unsqueeze(-1)
-            if attention_mask is not None:
-                attention_mask = attention_mask[:, :, -1, :].unsqueeze(2)
-
         return {
             "input_ids": input_ids,
             "position_ids": position_ids,
@@ -1149,8 +1217,8 @@ class GPTForTokenClassification(GPTPretrainedModel):
         super(GPTForTokenClassification, self).__init__()
         self.num_classes = num_classes
         self.gpt = gpt  # allow gpt to be config
-        self.dropout = nn.Dropout(dropout if dropout is not None else
-                                  self.gpt.config["hidden_dropout_prob"])
+        self.dropout = nn.Dropout(dropout if dropout is not None else self.gpt.
+                                  config["hidden_dropout_prob"])
         self.classifier = nn.Linear(self.gpt.config["hidden_size"], num_classes)
         self.apply(self.init_weights)
 
@@ -1209,8 +1277,9 @@ class GPTForSequenceClassification(GPTPretrainedModel):
     def __init__(self, gpt, num_classes=2):
         super(GPTForSequenceClassification, self).__init__()
         self.gpt = gpt  # allow gpt to be config
-        self.score = nn.Linear(
-            self.gpt.config["hidden_size"], num_classes, bias_attr=False)
+        self.score = nn.Linear(self.gpt.config["hidden_size"],
+                               num_classes,
+                               bias_attr=False)
         self.apply(self.init_weights)
 
     def forward(self, input_ids, position_ids=None, attention_mask=None):
@@ -1261,3 +1330,6 @@ class GPTForSequenceClassification(GPTPretrainedModel):
                 axis=-1))
 
         return pooled_logits
+
+
+GPTForCausalLM = GPTLMHeadModel

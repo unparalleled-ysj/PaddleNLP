@@ -12,13 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib
+
 import paddle
 import paddle.fluid.core as core
 import paddle.nn as nn
-from paddle.fluid.layer_helper import LayerHelper
-from paddle.fluid.framework import in_dygraph_mode
+from paddle.common_ops_import import LayerHelper
 from paddlenlp.utils.downloader import get_path_from_url
 from paddlenlp.transformers import BertTokenizer, ErnieTokenizer, RobertaTokenizer
+from paddlenlp.transformers.ppminilm.tokenizer import PPMiniLMTokenizer
+from paddlenlp.utils.log import logger
 
 __all__ = ["to_tensor", "to_vocab_buffer", "FasterTokenizer"]
 
@@ -72,10 +75,20 @@ class FasterTokenizer(nn.Layer):
         "roberta-wwm-ext-large": RobertaTokenizer,
         "rbt3": RobertaTokenizer,
         "rbtl3": RobertaTokenizer,
+        "ppminilm-6l-768h": PPMiniLMTokenizer,
     }
 
     def __init__(self, vocab, do_lower_case=False, is_split_into_words=False):
         super(FasterTokenizer, self).__init__()
+
+        try:
+            self.mod = importlib.import_module("paddle._C_ops")
+        except Exception as e:
+            logger.warning(
+                "The paddlepaddle version is {paddle.__version__}, not the latest. Please upgrade the paddlepaddle package (>= 2.2.1)."
+            )
+            self.mod = importlib.import_module("paddle.fluid.core.ops")
+
         vocab_buffer = to_vocab_buffer(vocab, "vocab")
         self.register_buffer("vocab", vocab_buffer, persistable=True)
 
@@ -86,13 +99,19 @@ class FasterTokenizer(nn.Layer):
                 text,
                 text_pair=None,
                 max_seq_len=0,
-                pad_to_max_seq_len=True):
-        if in_dygraph_mode():
-            input_ids, seg_ids = core.ops.faster_tokenizer(
+                pad_to_max_seq_len=False):
+        if paddle.in_dynamic_mode():
+            if isinstance(text, list) or isinstance(text, tuple):
+                text = to_tensor(list(text))
+            if text_pair is not None:
+                if isinstance(text_pair, list) or isinstance(text_pair, tuple):
+                    text_pair = to_tensor(list(text_pair))
+            input_ids, seg_ids = self.mod.faster_tokenizer(
                 self.vocab, text, text_pair, "do_lower_case",
                 self.do_lower_case, "max_seq_len", max_seq_len,
                 "pad_to_max_seq_len", pad_to_max_seq_len, "is_split_into_words",
                 self.is_split_into_words)
+
             return input_ids, seg_ids
 
         attrs = {
@@ -105,24 +124,28 @@ class FasterTokenizer(nn.Layer):
         input_ids = helper.create_variable_for_type_inference(dtype="int64")
         seg_ids = helper.create_variable_for_type_inference(dtype="int64")
         if text_pair is None:
-            helper.append_op(
-                type='faster_tokenizer',
-                inputs={'Vocab': self.vocab,
-                        'Text': text},
-                outputs={'InputIds': input_ids,
-                         'SegmentIds': seg_ids},
-                attrs=attrs)
+            helper.append_op(type='faster_tokenizer',
+                             inputs={
+                                 'Vocab': self.vocab,
+                                 'Text': text
+                             },
+                             outputs={
+                                 'InputIds': input_ids,
+                                 'SegmentIds': seg_ids
+                             },
+                             attrs=attrs)
         else:
-            helper.append_op(
-                type='faster_tokenizer',
-                inputs={
-                    'Vocab': self.vocab,
-                    'Text': text,
-                    'TextPair': text_pair
-                },
-                outputs={'InputIds': input_ids,
-                         'SegmentIds': seg_ids},
-                attrs=attrs)
+            helper.append_op(type='faster_tokenizer',
+                             inputs={
+                                 'Vocab': self.vocab,
+                                 'Text': text,
+                                 'TextPair': text_pair
+                             },
+                             outputs={
+                                 'InputIds': input_ids,
+                                 'SegmentIds': seg_ids
+                             },
+                             attrs=attrs)
         return input_ids, seg_ids
 
     @classmethod

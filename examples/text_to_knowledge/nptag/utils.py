@@ -122,6 +122,7 @@ class BurkhardKellerNode(object):
     Args:
         word (str): word of current node.
     """
+
     def __init__(self, word: str):
         self.word = word
         self.next = {}
@@ -130,6 +131,7 @@ class BurkhardKellerNode(object):
 class BurkhardKellerTree(object):
     """Implementataion of BK-Tree
     """
+
     def __init__(self):
         self.root = None
         self.nodes = {}

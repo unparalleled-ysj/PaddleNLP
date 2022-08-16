@@ -30,19 +30,19 @@ class PAWSX(DatasetBuilder):
     More information please refer to `https://arxiv.org/abs/1908.11828`
     Here we only store simplified Chinese(zh) version.
     """
-    URL = "https://dataset-bj.cdn.bcebos.com/qianyan/paws-x-zh.zip"
+    URL = "https://bj.bcebos.com/paddlenlp/datasets/paws-x-zh.zip"
     MD5 = "f1c6f2ab8afb1f29fe04a0c929e3ab1c"
     META_INFO = collections.namedtuple('META_INFO', ('file', 'md5'))
     SPLITS = {
-        'train': META_INFO(
-            os.path.join('paws-x-zh', 'paws-x-zh', 'train.tsv'),
-            '3422ba98e5151c91bbb0a785c4873a4c'),
-        'dev': META_INFO(
-            os.path.join('paws-x-zh', 'paws-x-zh', 'dev.tsv'),
-            'dc163453e728cf118e17b4065d6602c8'),
-        'test': META_INFO(
-            os.path.join('paws-x-zh', 'paws-x-zh', 'test.tsv'),
-            '5b7320760e70559591092cb01b6f5955'),
+        'train':
+        META_INFO(os.path.join('paws-x-zh', 'paws-x-zh', 'train.tsv'),
+                  '3422ba98e5151c91bbb0a785c4873a4c'),
+        'dev':
+        META_INFO(os.path.join('paws-x-zh', 'paws-x-zh', 'dev.tsv'),
+                  'dc163453e728cf118e17b4065d6602c8'),
+        'test':
+        META_INFO(os.path.join('paws-x-zh', 'paws-x-zh', 'test.tsv'),
+                  '5b7320760e70559591092cb01b6f5955'),
     }
 
     def _get_data(self, mode, **kwargs):

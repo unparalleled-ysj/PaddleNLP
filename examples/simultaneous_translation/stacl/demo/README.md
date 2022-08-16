@@ -34,7 +34,7 @@
 │   ├── nist_wait_1                 # waitk=1模型
 │   ├── nist_wait_3                 # waitk=3模型
 │   ├── nist_wait_5                 # waitk=5模型
-│   └── nist_wait_-1                # waitk=-1（整句模型）  
+│   └── nist_wait_-1                # waitk=-1（整句模型）
 ├── requirements.txt                # 环境依赖文件
 └── transformer_demo.yaml           # 参数配置文件
 
@@ -47,13 +47,13 @@
 ##### 1. 模型参数配置
 可以在`transformer_demo.yaml` 文件中设置相应的参数，下面给出主要的参数配置：
 
-- `src_bpe_dict`配置源语言（这里是中文）的BPE词表，[中文BPE词表下载](https://paddlenlp.bj.bcebos.com/models/stacl/2M.zh2en.dict4bpe.zh)
-- `src_vocab_fpath`配置源语言（这里是中文）词表，[source vocab](https://paddlenlp.bj.bcebos.com/models/stacl/nist.20k.zh.vocab)
-- `trg_vocab_fpath`配置目标语言（这里是英文）词表，[target vocab](https://paddlenlp.bj.bcebos.com/models/stacl/nist.10k.en.vocab)
+- `src_bpe_dict`配置源语言（这里是中文）的BPE词表，[中文BPE词表下载](https://bj.bcebos.com/paddlenlp/models/stacl/2M.zh2en.dict4bpe.zh)
+- `src_vocab_fpath`配置源语言（这里是中文）词表，[source vocab](https://bj.bcebos.com/paddlenlp/models/stacl/nist.20k.zh.vocab)
+- `trg_vocab_fpath`配置目标语言（这里是英文）词表，[target vocab](https://bj.bcebos.com/paddlenlp/models/stacl/nist.10k.en.vocab)
 - `device`选择预测用的设备，支持cpu/gpu/xpu，默认为cpu
 
 ##### 2. 语音同传参数配置
-需要配置`const.py`里面语音识别的应用鉴权信息，只需要将`APPID`和`APPKEY`设置为自己所申请的。  
+需要配置`const.py`里面语音识别的应用鉴权信息，只需要将`APPID`和`APPKEY`设置为自己所申请的。
 申请教程：[教程](./README_ai.md)
 
 ### 环境依赖
@@ -73,7 +73,7 @@
 - [`tkinter`官方文档](https://tkdocs.com/tutorial/index.html)
 
 ##### 2. 语音同传环境
-需要安装`pyaudio==0.2.11`来调用本地麦克风，安装教程参考[官网](http://people.csail.mit.edu/hubert/pyaudio/)  
+需要安装`pyaudio==0.2.11`来调用本地麦克风，安装教程参考[官网](http://people.csail.mit.edu/hubert/pyaudio/)
 安装失败，则只会启动文本同传。
 
 
@@ -85,8 +85,8 @@
 4. 出现界面，在Chinese input文本框中输入中文，按【回车键】开始实时翻译，或者按【REC】开始录音并开始实时翻译，遇到【。！？】结束整句，按【CLEAR】清空所有的输入和输出。
 
 ### 常见问题
-**Q:** 出现`_tkinter.TclError: couldn't recognize data in image file`错误  
-**A:** 升级`tkinter`，确保`tkinter >= 8.6`  
+**Q:** 出现`_tkinter.TclError: couldn't recognize data in image file`错误
+**A:** 升级`tkinter`，确保`tkinter >= 8.6`
 
-**Q:** 出现Chinese input文本框无法输入中文  
-**A:** 升级`tkinter`，确保`tkinter >= 8.6`  
+**Q:** 出现Chinese input文本框无法输入中文
+**A:** 升级`tkinter`，确保`tkinter >= 8.6`

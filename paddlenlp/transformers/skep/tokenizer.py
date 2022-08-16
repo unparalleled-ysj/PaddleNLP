@@ -22,7 +22,9 @@ from paddlenlp.transformers import BasicTokenizer, PretrainedTokenizer, Wordpiec
 from paddlenlp.utils.log import logger
 from paddlenlp.utils.env import MODEL_HOME
 
-__all__ = ['SkepTokenizer', ]
+__all__ = [
+    'SkepTokenizer',
+]
 
 
 def bytes_to_unicode():
@@ -160,8 +162,8 @@ class BpeEncoder(object):
         decode
         """
         text = ''.join([self.decoder[token] for token in tokens])
-        text = bytearray([self.byte_decoder[c] for c in text]).decode(
-            'utf-8', errors=self.errors)
+        text = bytearray([self.byte_decoder[c]
+                          for c in text]).decode('utf-8', errors=self.errors)
         return text
 
 
@@ -225,23 +227,27 @@ class SkepTokenizer(PretrainedTokenizer):
     pretrained_resource_files_map = {
         "vocab_file": {
             "skep_ernie_1.0_large_ch":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/skep/skep_ernie_1.0_large_ch.vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/skep/skep_ernie_1.0_large_ch.vocab.txt",
             "skep_ernie_2.0_large_en":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/skep/skep_ernie_2.0_large_en.vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/skep/skep_ernie_2.0_large_en.vocab.txt",
             "skep_roberta_large_en":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/skep/skep_roberta_large_en.vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/skep/skep_roberta_large_en.vocab.txt",
         },
         "bpe_vocab_file": {
-            "skep_ernie_1.0_large_ch": None,
-            "skep_ernie_2.0_large_en": None,
+            "skep_ernie_1.0_large_ch":
+            None,
+            "skep_ernie_2.0_large_en":
+            None,
             "skep_roberta_large_en":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/skep/skep_roberta_large_en.vocab.bpe",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/skep/skep_roberta_large_en.vocab.bpe",
         },
         "bpe_json_file": {
-            "skep_ernie_1.0_large_ch": None,
-            "skep_ernie_2.0_large_en": None,
+            "skep_ernie_1.0_large_ch":
+            None,
+            "skep_ernie_2.0_large_en":
+            None,
             "skep_roberta_large_en":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/skep/skep_roberta_large_en.encoder.json",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/skep/skep_roberta_large_en.encoder.json",
         }
     }
 
@@ -278,7 +284,8 @@ class SkepTokenizer(PretrainedTokenizer):
                  sep_token="[SEP]",
                  pad_token="[PAD]",
                  cls_token="[CLS]",
-                 mask_token="[MASK]"):
+                 mask_token="[MASK]",
+                 **kwargs):
         if not os.path.isfile(vocab_file):
             raise ValueError(
                 "Can't find a vocabulary file at path '{}'. To load the "
@@ -288,8 +295,9 @@ class SkepTokenizer(PretrainedTokenizer):
         self.vocab_file = vocab_file
         self.bpe_vocab_file = bpe_vocab_file
         self.bpe_json_file = bpe_json_file
-        self.vocab = self.load_vocabulary(
-            vocab_file, unk_token=unk_token, pad_token=pad_token)
+        self.vocab = self.load_vocabulary(vocab_file,
+                                          unk_token=unk_token,
+                                          pad_token=pad_token)
 
         self.use_bpe_encoder = use_bpe_encoder
         self.need_token_type_id = need_token_type_id
@@ -297,8 +305,8 @@ class SkepTokenizer(PretrainedTokenizer):
 
         if not self.use_bpe_encoder:
             self.basic_tokenizer = BasicTokenizer(do_lower_case=do_lower_case)
-            self.wordpiece_tokenizer = WordpieceTokenizer(
-                vocab=self.vocab, unk_token=unk_token)
+            self.wordpiece_tokenizer = WordpieceTokenizer(vocab=self.vocab,
+                                                          unk_token=unk_token)
         else:
             assert (bpe_vocab_file and bpe_json_file) is not None, (
                 f"bpe_vocab_file and bpe_json_file must be not None.")
@@ -336,30 +344,6 @@ class SkepTokenizer(PretrainedTokenizer):
 
         return split_tokens
 
-    def tokenize(self, text):
-        """
-        Converts a string to a list of tokens.
-
-        Args:
-            text (str): The text to be tokenized.
-
-        Returns:
-            List(str): A list of string representing converted tokens.
-
-        Examples:
-            .. code-block::
-
-                from paddlenlp.transformers import SkepTokenizer
-
-                tokenizer = SkepTokenizer.from_pretrained('skep_ernie_2.0_large_en')
-                tokens = tokenizer.tokenize('He was a puppeteer')
-                '''
-                ['he', 'was', 'a', 'puppet', '##eer']
-                '''
-
-        """
-        return self._tokenize(text)
-
     def num_special_tokens_to_add(self, pair=False):
         r"""
         Returns the number of added tokens when encoding a sequence with special tokens.
@@ -376,8 +360,8 @@ class SkepTokenizer(PretrainedTokenizer):
         token_ids_0 = []
         token_ids_1 = []
         return len(
-            self.build_inputs_with_special_tokens(token_ids_0, token_ids_1
-                                                  if pair else None))
+            self.build_inputs_with_special_tokens(
+                token_ids_0, token_ids_1 if pair else None))
 
     def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
         r"""
@@ -463,6 +447,9 @@ class SkepTokenizer(PretrainedTokenizer):
         """
         for name, file_name in self.resource_files_names.items():
             save_path = os.path.join(save_directory, file_name)
-            source_file = getattr(self, name)
-            if source_file is not None:
+            source_file = getattr(self, name, None)
+            if not source_file:
+                continue
+
+            if os.path.abspath(source_file) != os.path.abspath(save_path):
                 shutil.copyfile(source_file, save_path)

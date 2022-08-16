@@ -17,14 +17,14 @@ import argparse
 import sys
 import os
 import random
-import time
 
 import numpy as np
 import paddle
 import paddle.nn.functional as F
-import paddlenlp as ppnlp
+from paddlenlp.transformers import AutoModel, AutoTokenizer
 from paddlenlp.datasets import load_dataset
 from paddlenlp.data import Stack, Tuple, Pad
+from paddlenlp.ops import convert_to_fp16
 
 from data import read_text_pair, convert_example, create_dataloader
 from base_model import SemanticIndexBase
@@ -39,6 +39,7 @@ parser.add_argument("--batch_size", default=32, type=int, help="Batch size per G
 parser.add_argument("--output_emb_size", default=None, type=int, help="output_embedding_size")
 parser.add_argument('--device', choices=['cpu', 'gpu'], default="gpu", help="Select which device to train model, defaults to gpu.")
 parser.add_argument("--pad_to_max_seq_len", action="store_true", help="Whether to pad to max seq length.")
+parser.add_argument("--use_fp16", action="store_true", help="Whether to use_fp16")
 args = parser.parse_args()
 # yapf: enable
 
@@ -82,13 +83,12 @@ def predict(model, data_loader):
 if __name__ == "__main__":
     paddle.set_device(args.device)
 
-    tokenizer = ppnlp.transformers.ErnieTokenizer.from_pretrained('ernie-1.0')
+    tokenizer = AutoTokenizer.from_pretrained('ernie-3.0-medium-zh')
 
-    trans_func = partial(
-        convert_example,
-        tokenizer=tokenizer,
-        max_seq_length=args.max_seq_length,
-        pad_to_max_seq_len=args.pad_to_max_seq_len)
+    trans_func = partial(convert_example,
+                         tokenizer=tokenizer,
+                         max_seq_length=args.max_seq_length,
+                         pad_to_max_seq_len=args.pad_to_max_seq_len)
 
     batchify_fn = lambda samples, fn=Tuple(
         Pad(axis=0, pad_val=tokenizer.pad_token_id),  # query_input
@@ -97,21 +97,21 @@ if __name__ == "__main__":
         Pad(axis=0, pad_val=tokenizer.pad_token_type_id),  # tilte_segment
     ): [data for data in fn(samples)]
 
-    valid_ds = load_dataset(
-        read_text_pair, data_path=args.text_pair_file, lazy=False)
+    valid_ds = load_dataset(read_text_pair,
+                            data_path=args.text_pair_file,
+                            lazy=False)
 
-    valid_data_loader = create_dataloader(
-        valid_ds,
-        mode='predict',
-        batch_size=args.batch_size,
-        batchify_fn=batchify_fn,
-        trans_fn=trans_func)
+    valid_data_loader = create_dataloader(valid_ds,
+                                          mode='predict',
+                                          batch_size=args.batch_size,
+                                          batchify_fn=batchify_fn,
+                                          trans_fn=trans_func)
 
-    pretrained_model = ppnlp.transformers.ErnieModel.from_pretrained(
-        "ernie-1.0")
+    pretrained_model = AutoModel.from_pretrained("ernie-3.0-medium-zh")
 
-    model = SemanticIndexBase(
-        pretrained_model, output_emb_size=args.output_emb_size)
+    model = SemanticIndexBase(pretrained_model,
+                              output_emb_size=args.output_emb_size,
+                              use_fp16=args.use_fp16)
 
     if args.params_path and os.path.isfile(args.params_path):
         state_dict = paddle.load(args.params_path)
@@ -121,7 +121,9 @@ if __name__ == "__main__":
         raise ValueError(
             "Please set --params_path with correct pretrained model file")
 
-    cosin_sim = predict(model, valid_data_loader)
+    if args.use_fp16:
+        convert_to_fp16(model.ptm.encoder)
 
+    cosin_sim = predict(model, valid_data_loader)
     for idx, cosine in enumerate(cosin_sim):
         print('{}'.format(cosine))

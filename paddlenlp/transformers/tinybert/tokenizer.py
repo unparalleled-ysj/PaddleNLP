@@ -28,17 +28,17 @@ class TinyBertTokenizer(BertTokenizer):
     pretrained_resource_files_map = {
         "vocab_file": {
             "tinybert-4l-312d":
-            "http://paddlenlp.bj.bcebos.com/models/transformers/tinybert/tinybert-4l-312d-vocab.txt",
+            "http://bj.bcebos.com/paddlenlp/models/transformers/tinybert/tinybert-4l-312d-vocab.txt",
             "tinybert-6l-768d":
-            "http://paddlenlp.bj.bcebos.com/models/transformers/tinybert/tinybert-6l-768d-vocab.txt",
+            "http://bj.bcebos.com/paddlenlp/models/transformers/tinybert/tinybert-6l-768d-vocab.txt",
             "tinybert-4l-312d-v2":
-            "http://paddlenlp.bj.bcebos.com/models/transformers/tinybert/tinybert-4l-312d-v2-vocab.txt",
+            "http://bj.bcebos.com/paddlenlp/models/transformers/tinybert/tinybert-4l-312d-v2-vocab.txt",
             "tinybert-6l-768d-v2":
-            "http://paddlenlp.bj.bcebos.com/models/transformers/tinybert/tinybert-6l-768d-v2-vocab.txt",
+            "http://bj.bcebos.com/paddlenlp/models/transformers/tinybert/tinybert-6l-768d-v2-vocab.txt",
             "tinybert-4l-312d-zh":
-            "http://paddlenlp.bj.bcebos.com/models/transformers/tinybert/tinybert-4l-312d-zh-vocab.txt",
+            "http://bj.bcebos.com/paddlenlp/models/transformers/tinybert/tinybert-4l-312d-zh-vocab.txt",
             "tinybert-6l-768d-zh":
-            "http://paddlenlp.bj.bcebos.com/models/transformers/tinybert/tinybert-6l-768d-zh-vocab.txt",
+            "http://bj.bcebos.com/paddlenlp/models/transformers/tinybert/tinybert-6l-768d-zh-vocab.txt",
         }
     }
     pretrained_init_configuration = {
@@ -60,4 +60,12 @@ class TinyBertTokenizer(BertTokenizer):
         "tinybert-6l-768d-zh": {
             "do_lower_case": True
         },
+    }
+    max_model_input_sizes = {
+        "tinybert-4l-312d": 512,
+        "tinybert-6l-768d": 512,
+        "tinybert-4l-312d-v2": 512,
+        "tinybert-6l-768d-v2": 512,
+        "tinybert-4l-312d-zh": 512,
+        "tinybert-6l-768d-zh": 512
     }

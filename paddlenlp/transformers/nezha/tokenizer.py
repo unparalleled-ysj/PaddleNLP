@@ -79,13 +79,13 @@ class NeZhaTokenizer(PretrainedTokenizer):
     pretrained_resource_files_map = {
         "vocab_file": {
             "nezha-base-chinese":
-            "http://paddlenlp.bj.bcebos.com/models/transformers/nezha/nezha-chinese-vocab.txt",
+            "http://bj.bcebos.com/paddlenlp/models/transformers/nezha/nezha-chinese-vocab.txt",
             "nezha-base-wwm-chinese":
-            "http://paddlenlp.bj.bcebos.com/models/transformers/nezha/nezha-chinese-vocab.txt",
+            "http://bj.bcebos.com/paddlenlp/models/transformers/nezha/nezha-chinese-vocab.txt",
             "nezha-large-chinese":
-            "http://paddlenlp.bj.bcebos.com/models/transformers/nezha/nezha-chinese-vocab.txt",
+            "http://bj.bcebos.com/paddlenlp/models/transformers/nezha/nezha-chinese-vocab.txt",
             "nezha-large-wwm-chinese":
-            "http://paddlenlp.bj.bcebos.com/models/transformers/nezha/nezha-chinese-vocab.txt",
+            "http://bj.bcebos.com/paddlenlp/models/transformers/nezha/nezha-chinese-vocab.txt",
         }
     }
     pretrained_init_configuration = {
@@ -111,18 +111,19 @@ class NeZhaTokenizer(PretrainedTokenizer):
                  sep_token="[SEP]",
                  pad_token="[PAD]",
                  cls_token="[CLS]",
-                 mask_token="[MASK]"):
+                 mask_token="[MASK]",
+                 **kwargs):
 
         if not os.path.isfile(vocab_file):
             raise ValueError(
                 "Can't find a vocabulary file at path '{}'. To load the "
                 "vocabulary from a pretrained model please use "
-                "`tokenizer = BertTokenizer.from_pretrained(PRETRAINED_MODEL_NAME)`"
+                "`tokenizer = NeZhaTokenizer.from_pretrained(PRETRAINED_MODEL_NAME)`"
                 .format(vocab_file))
         self.vocab = self.load_vocabulary(vocab_file, unk_token=unk_token)
         self.basic_tokenizer = BasicTokenizer(do_lower_case=do_lower_case)
-        self.wordpiece_tokenizer = WordpieceTokenizer(
-            vocab=self.vocab, unk_token=unk_token)
+        self.wordpiece_tokenizer = WordpieceTokenizer(vocab=self.vocab,
+                                                      unk_token=unk_token)
 
     @property
     def vocab_size(self):
@@ -149,31 +150,6 @@ class NeZhaTokenizer(PretrainedTokenizer):
                 split_tokens.append(sub_token)
         return split_tokens
 
-    def tokenize(self, text):
-        """
-        Converts a string to a list of tokens.
-
-        Args:
-            text (str): The text to be tokenized.
-
-        Returns:
-            List(str): A list of string representing converted tokens.
-
-        Examples:
-            .. code-block::
-
-                from paddlenlp.transformers import NeZhaokenizer
-
-                tokenizer = NeZhaTokenizer.from_pretrained('nezha-base-chinese')
-                tokens = tokenizer.tokenize('欢迎使用百度飞桨！')
-
-                '''
-                ['欢', '迎', '使', '用', '百', '度', '飞', '桨', '！']
-                '''
-
-        """
-        return self._tokenize(text)
-
     def convert_tokens_to_string(self, tokens):
         """
         Converts a sequence of tokens (list of string) to a single string. Since
@@ -191,7 +167,7 @@ class NeZhaTokenizer(PretrainedTokenizer):
 
                 from paddlenlp.transformers import NeZhaTokenizer
 
-                tokenizer = NeZhaTokenizer.from_pretrained('bert-base-uncased')
+                tokenizer = NeZhaTokenizer.from_pretrained('nezha-base-chinese')
                 tokens = tokenizer.tokenize('欢迎使用百度飞桨！')
                 '''
                 ['欢', '迎', '使', '用', '百', '度', '飞', '桨', '！']
@@ -219,8 +195,8 @@ class NeZhaTokenizer(PretrainedTokenizer):
         token_ids_0 = []
         token_ids_1 = []
         return len(
-            self.build_inputs_with_special_tokens(token_ids_0, token_ids_1
-                                                  if pair else None))
+            self.build_inputs_with_special_tokens(
+                token_ids_0, token_ids_1 if pair else None))
 
     def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
         """
@@ -331,7 +307,9 @@ class NeZhaTokenizer(PretrainedTokenizer):
                     "ids is already formatted with special tokens for the model."
                 )
             return list(
-                map(lambda x: 1 if x in [self.sep_token_id, self.cls_token_id] else 0,
+                map(
+                    lambda x: 1
+                    if x in [self.sep_token_id, self.cls_token_id] else 0,
                     token_ids_0))
 
         if token_ids_1 is not None:

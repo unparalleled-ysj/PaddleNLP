@@ -19,17 +19,16 @@ import argparse
 
 from paddle.utils.download import get_path_from_url
 
-URL = "https://paddlenlp.bj.bcebos.com/datasets/lexical_analysis_dataset_tiny.tar.gz"
+URL = "https://bj.bcebos.com/paddlenlp/datasets/lexical_analysis_dataset_tiny.tar.gz"
 
 
 def main(arguments):
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-d',
-        '--data_dir',
-        help='directory to save data to',
-        type=str,
-        default='data')
+    parser.add_argument('-d',
+                        '--data_dir',
+                        help='directory to save data to',
+                        type=str,
+                        default='data')
     args = parser.parse_args(arguments)
     get_path_from_url(URL, args.data_dir)
 

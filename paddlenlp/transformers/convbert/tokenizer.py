@@ -15,7 +15,9 @@
 
 from ..electra.tokenizer import ElectraTokenizer
 
-__all__ = ['ConvBertTokenizer', ]
+__all__ = [
+    'ConvBertTokenizer',
+]
 
 
 class ConvBertTokenizer(ElectraTokenizer):
@@ -27,11 +29,11 @@ class ConvBertTokenizer(ElectraTokenizer):
     pretrained_resource_files_map = {
         "vocab_file": {
             "convbert-base":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/convbert/convbert-base/vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/convbert/convbert-base/vocab.txt",
             "convbert-medium-small":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/convbert/convbert-medium-small/vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/convbert/convbert-medium-small/vocab.txt",
             "convbert-small":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/convbert/convbert-small/vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/convbert/convbert-small/vocab.txt",
         }
     }
     pretrained_init_configuration = {

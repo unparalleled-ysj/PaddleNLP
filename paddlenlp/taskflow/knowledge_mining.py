@@ -25,11 +25,21 @@ from collections import OrderedDict
 import numpy as np
 import paddle
 import paddle.nn as nn
+try:
+    from paddle.text import ViterbiDecoder
+except:
+    raise ImportError(
+        "Taskflow requires paddle version >= 2.2.0, but current paddle version is {}"
+        .format(paddle.version.full_version))
+from paddlenlp.layers.crf import LinearChainCrf
+from paddlenlp.utils.tools import compare_version
+
 from ..datasets import MapDataset, load_dataset
 from ..data import Stack, Pad, Tuple
 from ..transformers import ErnieCtmWordtagModel, ErnieCtmNptagModel, ErnieCtmTokenizer
 from .utils import download_file, add_docstrings, static_mode_guard, dygraph_mode_guard
 from .utils import TermTree, BurkhardKellerTree
+from .utils import Customization, WordTagRelationExtractor
 from .task import Task
 
 LABEL_TO_SCHEMA = {
@@ -97,30 +107,11 @@ LABEL_TO_SCHEMA = {
     "汉语拼音": ["汉语拼音"],
 }
 
-URLS = {
-    "TermTree.V1.0": [
-        "https://kg-concept.bj.bcebos.com/TermTree/TermTree.V1.0.tar.gz",
-        "3514221be5017b3b4349daa6435f7b5e"
-    ],
-    "termtree_type": [
-        "https://paddlenlp.bj.bcebos.com/models/transformers/ernie_ctm/termtree_type.csv",
-        "062cb9ac24f4135bf836e2a2fc5a1209"
-    ],
-    "termtree_tags_pos": [
-        "https://paddlenlp.bj.bcebos.com/models/transformers/ernie_ctm/termtree_tags_pos.txt",
-        "87db06ae6ca42565157045ab3e9a996f"
-    ],
-    "name_category_map.json": [
-        "https://paddlenlp.bj.bcebos.com/models/transformers/ernie_ctm/name_category_map.json",
-        "40e8adaaadb567e90978c5389d595b48",
-    ],
-}
-
 usage = r"""
           from paddlenlp import Taskflow 
 
           # 默认使用WordTag词类知识标注工具
-          wordtag = Taskflow("knowledge_mining")
+          wordtag = Taskflow("knowledge_mining", model="wordtag")
           wordtag("《孤女》是2010年九州出版社出版的小说，作者是余兼羽")
           '''
           [{'text': '《孤女》是2010年九州出版社出版的小说，作者是余兼羽', 'items': [{'item': '《', 'offset': 0, 'wordtag_label': 'w', 'length': 1}, {'item': '孤女', 'offset': 1, 'wordtag_label': '作品类_实体', 'length': 2}, {'item': '》', 'offset': 3, 'wordtag_label': 'w', 'length': 1}, {'item': '是', 'offset': 4, 'wordtag_label': '肯定词', 'length': 1, 'termid': '肯定否定词_cb_是'}, {'item': '2010年', 'offset': 5, 'wordtag_label': '时间类', 'length': 5, 'termid': '时间阶段_cb_2010年'}, {'item': '九州出版社', 'offset': 10, 'wordtag_label': '组织机构类', 'length': 5, 'termid': '组织机构_eb_九州出版社'}, {'item': '出版', 'offset': 15, 'wordtag_label': '场景事件', 'length': 2, 'termid': '场景事件_cb_出版'}, {'item': '的', 'offset': 17, 'wordtag_label': '助词', 'length': 1, 'termid': '助词_cb_的'}, {'item': '小说', 'offset': 18, 'wordtag_label': '作品类_概念', 'length': 2, 'termid': '小说_cb_小说'}, {'item': '，', 'offset': 20, 'wordtag_label': 'w', 'length': 1}, {'item': '作者', 'offset': 21, 'wordtag_label': '人物类_概念', 'length': 2, 'termid': '人物_cb_作者'}, {'item': '是', 'offset': 23, 'wordtag_label': '肯定词', 'length': 1, 'termid': '肯定否定词_cb_是'}, {'item': '余兼羽', 'offset': 24, 'wordtag_label': '人物类_实体', 'length': 3}]}]
@@ -133,6 +124,12 @@ usage = r"""
           [{'text': '热梅茶是一道以梅子为主要原料制作的茶饮', 'items': [{'item': '热梅茶', 'offset': 0, 'wordtag_label': '饮食类_饮品', 'length': 3}, {'item': '是', 'offset': 3, 'wordtag_label': '肯定词', 'length': 1, 'termid': '肯定否定词_cb_是'}, {'item': '一道', 'offset': 4, 'wordtag_label': '数量词', 'length': 2}, {'item': '以', 'offset': 6, 'wordtag_label': '介词', 'length': 1, 'termid': '介词_cb_以'}, {'item': '梅子', 'offset': 7, 'wordtag_label': '饮食类', 'length': 2, 'termid': '饮食_cb_梅'}, {'item': '为', 'offset': 9, 'wordtag_label': '肯定词', 'length': 1, 'termid': '肯定否定词_cb_为'}, {'item': '主要原料', 'offset': 10, 'wordtag_label': '物体类', 'length': 4, 'termid': '物品_cb_主要原料'}, {'item': '制作', 'offset': 14, 'wordtag_label': '场景事件', 'length': 2, 'termid': '场景事件_cb_制作'}, {'item': '的', 'offset': 16, 'wordtag_label': '助词', 'length': 1, 'termid': '助词_cb_的'}, {'item': '茶饮', 'offset': 17, 'wordtag_label': '饮食类_饮品', 'length': 2, 'termid': '饮品_cb_茶饮'}]}, {'text': '《孤女》是2010年九州出版社出版的小说，作者是余兼羽', 'items': [{'item': '《', 'offset': 0, 'wordtag_label': 'w', 'length': 1}, {'item': '孤女', 'offset': 1, 'wordtag_label': '作品类_实体', 'length': 2}, {'item': '》', 'offset': 3, 'wordtag_label': 'w', 'length': 1}, {'item': '是', 'offset': 4, 'wordtag_label': '肯定词', 'length': 1, 'termid': '肯定否定词_cb_是'}, {'item': '2010年', 'offset': 5, 'wordtag_label': '时间类', 'length': 5, 'termid': '时间阶段_cb_2010年'}, {'item': '九州出版社', 'offset': 10, 'wordtag_label': '组织机构类', 'length': 5, 'termid': '组织机构_eb_九州出版社'}, {'item': '出版', 'offset': 15, 'wordtag_label': '场景事件', 'length': 2, 'termid': '场景事件_cb_出版'}, {'item': '的', 'offset': 17, 'wordtag_label': '助词', 'length': 1, 'termid': '助词_cb_的'}, {'item': '小说', 'offset': 18, 'wordtag_label': '作品类_概念', 'length': 2, 'termid': '小说_cb_小说'}, {'item': '，', 'offset': 20, 'wordtag_label': 'w', 'length': 1}, {'item': '作者', 'offset': 21, 'wordtag_label': '人物类_概念', 'length': 2, 'termid': '人物_cb_作者'}, {'item': '是', 'offset': 23, 'wordtag_label': '肯定词', 'length': 1, 'termid': '肯定否定词_cb_是'}, {'item': '余兼羽', 'offset': 24, 'wordtag_label': '人物类_实体', 'length': 3}]}]
           '''
 
+          # 使用WordTag-IE进行信息抽取
+          wordtag = Taskflow("knowledge_mining", model="wordtag", with_ie=True)
+          '''
+          [[{'text': '《忘了所有》是一首由王杰作词、作曲并演唱的歌曲，收录在专辑同名《忘了所有》中，由波丽佳音唱片于1996年08月31日发行。', 'items': [{'item': '《', 'offset': 0, 'wordtag_label': 'w', 'length': 1}, {'item': '忘了所有', 'offset': 1, 'wordtag_label': '作品类_实体', 'length': 4}, {'item': '》', 'offset': 5, 'wordtag_label': 'w', 'length': 1}, {'item': '是', 'offset': 6, 'wordtag_label': '肯定词', 'length': 1}, {'item': '一首', 'offset': 7, 'wordtag_label': '数量词_单位数量词', 'length': 2}, {'item': '由', 'offset': 9, 'wordtag_label': '介词', 'length': 1}, {'item': '王杰', 'offset': 10, 'wordtag_label': '人物类_实体', 'length': 2}, {'item': '作词', 'offset': 12, 'wordtag_label': '场景事件', 'length': 2}, {'item': '、', 'offset': 14, 'wordtag_label': 'w', 'length': 1}, {'item': '作曲', 'offset': 15, 'wordtag_label': '场景事件', 'length': 2}, {'item': '并', 'offset': 17, 'wordtag_label': '连词', 'length': 1}, {'item': '演唱', 'offset': 18, 'wordtag_label': '场景事件', 'length': 2}, {'item': '的', 'offset': 20, 'wordtag_label': '助词', 'length': 1}, {'item': '歌曲', 'offset': 21, 'wordtag_label': '作品类_概念', 'length': 2}, {'item': '，', 'offset': 23, 'wordtag_label': 'w', 'length': 1}, {'item': '收录', 'offset': 24, 'wordtag_label': '场景事件', 'length': 2}, {'item': '在', 'offset': 26, 'wordtag_label': '介词', 'length': 1}, {'item': '专辑', 'offset': 27, 'wordtag_label': '作品类_概念', 'length': 2}, {'item': '同名', 'offset': 29, 'wordtag_label': '场景事件', 'length': 2}, {'item': '《', 'offset': 31, 'wordtag_label': 'w', 'length': 1}, {'item': '忘了所有', 'offset': 32, 'wordtag_label': '作品类_实体', 'length': 4}, {'item': '》', 'offset': 36, 'wordtag_label': 'w', 'length': 1}, {'item': '中', 'offset': 37, 'wordtag_label': '词汇用语', 'length': 1}, {'item': '，', 'offset': 38, 'wordtag_label': 'w', 'length': 1}, {'item': '由', 'offset': 39, 'wordtag_label': '介词', 'length': 1}, {'item': '波丽佳音', 'offset': 40, 'wordtag_label': '人物类_实体', 'length': 4}, {'item': '唱片', 'offset': 44, 'wordtag_label': '作品类_概念', 'length': 2}, {'item': '于', 'offset': 46, 'wordtag_label': '介词', 'length': 1}, {'item': '1996年08月31日', 'offset': 47, 'wordtag_label': '时间类_具体时间', 'length': 11}, {'item': '发行', 'offset': 58, 'wordtag_label': '场景事件', 'length': 2}, {'item': '。', 'offset': 60, 'wordtag_label': 'w', 'length': 1}]}], [[{'HEAD_ROLE': {'item': '王杰', 'offset': 10, 'type': '人物类_实体'}, 'TAIL_ROLE': [{'item': '忘了所有', 'type': '作品类_实体', 'offset': 1}], 'GROUP': '创作', 'TRIG': [{'item': '作词', 'offset': 12}, {'item': '作曲', 'offset': 15}, {'item': '演唱', 'offset': 18}], 'SRC': 'REVERSE'}, {'HEAD_ROLE': {'item': '忘了所有', 'type': '作品类_实体', 'offset': 1}, 'TAIL_ROLE': [{'item': '王杰', 'offset': 10, 'type': '人物类_实体'}], 'GROUP': '创作者', 'SRC': 'HTG', 'TRIG': [{'item': '作词', 'offset': 12}, {'item': '作曲', 'offset': 15}, {'item': '演唱', 'offset': 18}]}, {'HEAD_ROLE': {'item': '忘了所有', 'type': '作品类_实体', 'offset': 1}, 'TAIL_ROLE': [{'item': '歌曲', 'offset': 21, 'type': '作品类_概念'}], 'GROUP': '类型', 'SRC': 'TAIL'}, {'HEAD_ROLE': {'item': '忘了所有', 'offset': 32, 'type': '作品类_实体'}, 'TAIL_ROLE': [{'item': '忘了所有', 'type': '作品类_实体', 'offset': 1}], 'GROUP': '收录', 'TRIG': [{'item': '收录', 'offset': 24}], 'SRC': 'REVERSE'}, {'HEAD_ROLE': {'item': '忘了所有', 'type': '作品类_实体', 'offset': 1}, 'TAIL_ROLE': [{'item': '忘了所有', 'offset': 32, 'type': '作品类_实体'}], 'GROUP': '收录于', 'SRC': 'HGT', 'TRIG': [{'item': '收录', 'offset': 24}]}, {'HEAD_ROLE': {'item': '忘了所有', 'offset': 32, 'type': '作品类_实体'}, 'TAIL_ROLE': [{'item': '王杰', 'type': '人物类_实体', 'offset': 10}], 'GROUP': '创作者', 'TRIG': [{'item': '专辑', 'offset': 27}], 'SRC': 'REVERSE'}, {'HEAD_ROLE': {'item': '王杰', 'type': '人物类_实体', 'offset': 10}, 'TAIL_ROLE': [{'item': '忘了所有', 'offset': 32, 'type': '作品类_实体'}], 'GROUP': '创作', 'SRC': 'HGT', 'TRIG': [{'item': '专辑', 'offset': 27}]}, {'HEAD_ROLE': {'item': '忘了所有', 'type': '作品类_实体', 'offset': 32}, 'TAIL_ROLE': [{'item': '唱片', 'offset': 44, 'type': '作品类_概念'}], 'GROUP': '类型', 'SRC': 'TAIL'}]]]
+          '''
+          
           # 切换为NPTag名词短语标注工具
           nptag = Taskflow("knowledge_mining", model="nptag")
           nptag("糖醋排骨")
@@ -165,31 +162,90 @@ class WordTagTask(Task):
         kwargs (dict, optional): Additional keyword arguments passed along to the specific task. 
 
     """
-    def __init__(self, model, task, **kwargs):
-        super().__init__(model=model, task=task, **kwargs)
-        self._static_mode = False
-        self._linking = self.kwargs[
-            'linking'] if 'linking' in self.kwargs else False
-        term_schema_path = download_file(self._task_path, "termtree_type.csv",
-                                         URLS['termtree_type'][0],
-                                         URLS['termtree_type'][1])
-        term_data_path = download_file(self._task_path, "TermTree.V1.0",
-                                       URLS['TermTree.V1.0'][0],
-                                       URLS['TermTree.V1.0'][1])
-        tag_path = download_file(self._task_path, "termtree_tags_pos.txt",
-                                 URLS['termtree_tags_pos'][0],
-                                 URLS['termtree_tags_pos'][1])
-        self._tags_to_index, self._index_to_tags = self._load_labels(tag_path)
 
-        self._termtree = TermTree.from_dir(term_schema_path, term_data_path,
-                                           self._linking)
+    resource_files_names = {
+        "model_state": "model_state.pdparams",
+        "model_config": "model_config.json",
+        "termtree_schema": "termtree_type.csv",
+        "termtree_data": "termtree_data",
+        "tags": "tags.txt",
+        "spo_config": "spo_config.pkl"
+    }
+    resource_files_urls = {
+        "wordtag": {
+            "model_state": [
+                "https://bj.bcebos.com/paddlenlp/taskflow/knowledge_mining/wordtag_v1.2/model_state.pdparams",
+                "d9d323d3c2ead54d18f517725c99e969"
+            ],
+            "model_config": [
+                "https://bj.bcebos.com/paddlenlp/taskflow/knowledge_mining/wordtag_v1.1/model_config.json",
+                "9dcbd5d6f67792b2a2be058799a144ea"
+            ],
+            "termtree_schema": [
+                "https://bj.bcebos.com/paddlenlp/taskflow/knowledge_mining/wordtag/termtree_type.csv",
+                "062cb9ac24f4135bf836e2a2fc5a1209"
+            ],
+            "termtree_data": [
+                "https://bj.bcebos.com/paddlenlp/taskflow/knowledge_mining/wordtag/termtree_data",
+                "a0efe723f84cf90540ac727be5b62e59"
+            ],
+            "tags": [
+                "https://bj.bcebos.com/paddlenlp/taskflow/knowledge_mining/wordtag_v1.1/tags.txt",
+                "f33feedd01d478b03bac81be19b48d00"
+            ],
+            "spo_config": [
+                "https://bj.bcebos.com/paddlenlp/taskflow/knowledge_mining/wordtag_v1.1/spo_config.pkl",
+                "07a0b8d0422198d8c4c0f70e68963275"
+            ]
+        }
+    }
+
+    def __init__(self,
+                 model,
+                 task,
+                 params_path=None,
+                 tag_path=None,
+                 term_schema_path=None,
+                 term_data_path=None,
+                 user_dict=None,
+                 linking=True,
+                 spo_config_path=None,
+                 with_ie=False,
+                 **kwargs):
+        super().__init__(model=model, task=task, **kwargs)
+        self._tag_path = tag_path
+        self._params_path = params_path
+        self._term_schema_path = term_schema_path
+        self._term_data_path = term_data_path
+        self._user_dict = user_dict
+        self._linking = linking
+        self._spo_config_path = spo_config_path
+        self._with_ie = with_ie
+        self._check_task_files()
+        self._load_task_resources()
         self._construct_tokenizer(model)
         self._usage = usage
         self._summary_num = 2
-        if self._static_mode:
-            self._get_inference_model()
+        self._get_inference_model()
+
+        if self._user_dict:
+            self._custom = Customization()
+            self._custom.load_customization(self._user_dict)
         else:
-            self._construct_model(model)
+            self._custom = None
+        self._num_workers = self.kwargs[
+            'num_workers'] if 'num_workers' in self.kwargs else 0
+        self._batch_size = self.kwargs[
+            'batch_size'] if 'batch_size' in self.kwargs else 1
+        self._lazy_load = self.kwargs[
+            'lazy_load'] if 'lazy_load' in self.kwargs else False
+        self._max_seq_len = self.kwargs[
+            'max_seq_len'] if 'max_seq_len' in self.kwargs else 512
+        self._split_sentence = self.kwargs[
+            'split_sentence'] if 'split_sentence' in self.kwargs else False
+        if self._with_ie:
+            self._ie_extractor = WordTagRelationExtractor.from_pkl(
+                self._spo_config_path)
 
     @property
     def summary_num(self):
@@ -208,116 +264,50 @@ class WordTagTask(Task):
     @staticmethod
     def _load_labels(tag_path):
         tags_to_idx = {}
+        all_tags = []
         i = 0
         with open(tag_path, encoding="utf-8") as fp:
             for line in fp:
                 line = line.strip()
+                tag = line.split("-")[-1]
+                if tag not in all_tags:
+                    all_tags.append(tag)
                 tags_to_idx[line] = i
                 i += 1
         idx_to_tags = dict(zip(*(tags_to_idx.values(), tags_to_idx.keys())))
-        return tags_to_idx, idx_to_tags
+        return tags_to_idx, idx_to_tags, all_tags
 
-    def _split_long_text_input(self, input_texts, max_text_len):
+    def _load_task_resources(self):
         """
-        Split the long text to list of short text, the max_seq_len of input text is 512,
-        if the text length greater than 512, will this function that spliting the long text.
+        Load the resource of this task.
         """
-        short_input_texts = []
-        for text in input_texts:
-            if len(text) <= max_text_len:
-                short_input_texts.append(text)
-            else:
-                lens = len(text)
-                temp_text_list = text.split("？。！")
-                temp_text_list = [
-                    temp_text for temp_text in temp_text_list
-                    if len(temp_text) > 0
-                ]
-                if len(temp_text_list) <= 1:
-                    temp_text_list = [
-                        text[i:i + max_text_len]
-                        for i in range(0, len(text), max_text_len)
-                    ]
-                    short_input_texts.extend(temp_text_list)
-                else:
-                    list_len = len(temp_text_list)
-                    start = 0
-                    end = 0
-                    for i in range(0, list_len):
-                        if len(temp_text_list[i]) + 1 >= max_text_len:
-                            if start != end:
-                                short_input_texts.extend(
-                                    self._split_long_text_input(
-                                        [text[start:end]], max_text_len))
-                            short_input_texts.extend(
-                                self._split_long_text_input([
-                                    text[end:end + len(temp_text_list[i]) + 1]
-                                ], max_text_len))
-                            start = end + len(temp_text_list[i]) + 1
-                            end = start
-                        else:
-                            if start + len(
-                                    temp_text_list[i]) + 1 > max_text_len:
-                                short_input_texts.extend(
-                                    self._split_long_text_input(
-                                        [text[start:end]], max_text_len))
-                                start = end
-                                end = end + len(temp_text_list[i]) + 1
-                            else:
-                                end = len(temp_text_list[i]) + 1
-                    if start != end:
-                        short_input_texts.extend(
-                            self._split_long_text_input([text[start:end]],
-                                                        max_text_len))
-        return short_input_texts
+        if self._tag_path is None:
+            self._tag_path = os.path.join(self._task_path, "tags.txt")
+            self._tags_to_index, self._index_to_tags, self._all_tags = self._load_labels(
+                self._tag_path)
 
-    def _concat_short_text_reuslts(self, input_texts, results):
-        """
-        Concat the model output of short texts to the total result of long text.
-        """
-        long_text_lens = [len(text) for text in input_texts]
-        concat_results = []
-        single_results = {}
-        count = 0
-        for text in input_texts:
-            text_len = len(text)
-            while True:
-                if len(single_results) == 0 or len(
-                        single_results["text"]) < text_len:
-                    if len(single_results) == 0:
-                        single_results = copy.deepcopy(results[count])
-                    else:
-                        single_results["text"] += results[count]["text"]
-                        single_results["items"].extend(results[count]["items"])
-                    count += 1
-                elif len(single_results["text"]) == text_len:
-                    concat_results.append(single_results)
-                    single_results = {}
-                    break
-                else:
-                    raise Exception(
-                        "The length of input text and raw text is not equal.")
-        for result in concat_results:
-            pred_words = result['items']
-            pred_words = self._reset_offset(pred_words)
-            result['items'] = pred_words
-        return concat_results
+        if self._term_schema_path is None:
+            self._term_schema_path = os.path.join(self._task_path,
+                                                  "termtree_type.csv")
+        if self._term_data_path is None:
+            self._term_data_path = os.path.join(self._task_path,
+                                                "termtree_data")
+
+        if self._linking is True:
+            self._termtree = TermTree.from_dir(self._term_schema_path,
+                                               self._term_data_path,
+                                               self._linking)
+
+        if self._spo_config_path is None:
+            self._spo_config_path = os.path.join(self._task_path,
+                                                 "spo_config.pkl")
 
     def _preprocess_text(self, input_texts):
         """
         Create the dataset and dataloader for the predict.
         """
-        batch_size = 1
-        batch_size = self.kwargs[
-            'batch_size'] if 'batch_size' in self.kwargs else 1
-        num_workers = self.kwargs[
-            'num_workers'] if 'num_workers' in self.kwargs else 0
-
-        max_seq_length = 512
-        if 'max_seq_length' in self.kwargs:
-            max_seq_length = self.kwargs['max_seq_length']
         infer_data = []
-        max_predict_len = max_seq_length - self.summary_num - 1
+        max_predict_len = self._max_seq_len - self.summary_num - 1
         filter_input_texts = []
         for input_text in input_texts:
             if not (isinstance(input_text, str) and len(input_text) > 0):
@@ -325,19 +315,21 @@ class WordTagTask(Task):
             filter_input_texts.append(input_text)
         input_texts = filter_input_texts
 
-        short_input_texts = self._split_long_text_input(input_texts,
-                                                        max_predict_len)
+        short_input_texts, self.input_mapping = self._auto_splitter(
+            input_texts, max_predict_len, split_sentence=self._split_sentence)
 
         def read(inputs):
             for text in inputs:
                 tokenized_output = self._tokenizer(list(text),
                                                    return_length=True,
                                                    is_split_into_words=True,
-                                                   max_seq_len=max_seq_length)
+                                                   max_length=self._max_seq_len)
                 yield tokenized_output['input_ids'], tokenized_output[
                     'token_type_ids'], tokenized_output['seq_len']
 
-        infer_ds = load_dataset(read, inputs=short_input_texts, lazy=False)
+        infer_ds = load_dataset(read,
+                                inputs=short_input_texts,
+                                lazy=self._lazy_load)
         batchify_fn = lambda samples, fn=Tuple(
             Pad(axis=0, pad_val=self._tokenizer.pad_token_id, dtype='int64'
                 ),  # input_ids
@@ -349,15 +341,14 @@ class WordTagTask(Task):
 
         infer_data_loader = paddle.io.DataLoader(infer_ds,
                                                  collate_fn=batchify_fn,
-                                                 num_workers=num_workers,
-                                                 batch_size=batch_size,
+                                                 num_workers=self._num_workers,
+                                                 batch_size=self._batch_size,
                                                  shuffle=False,
                                                  return_list=True)
 
         outputs = {}
         outputs['data_loader'] = infer_data_loader
         outputs['short_input_texts'] = short_input_texts
-        outputs['inputs'] = input_texts
         return outputs
 
     def _reset_offset(self, pred_words):
@@ -370,46 +361,54 @@ class WordTagTask(Task):
 
     def _decode(self, batch_texts, batch_pred_tags):
         batch_results = []
-        for i, pred_tags in enumerate(batch_pred_tags):
-            pred_words, pred_word = [], []
-            text = batch_texts[i]
-            for j, tag in enumerate(pred_tags[self.summary_num:-1]):
-                if j >= len(text):
-                    break
-                pred_label = self._index_to_tags[tag]
-                if pred_label.find("-") != -1:
-                    _, label = pred_label.split("-")
-                else:
-                    label = pred_label
-                if pred_label.startswith("S") or pred_label.startswith("O"):
-                    pred_words.append({
-                        "item": text[j],
-                        "offset": 0,
-                        "wordtag_label": label
-                    })
-                else:
-                    pred_word.append(text[j])
-                    if pred_label.startswith("E"):
-                        pred_words.append({
-                            "item": "".join(pred_word),
-                            "offset": 0,
-                            "wordtag_label": label
-                        })
-                        del pred_word[:]
+        for sent_index in range(len(batch_texts)):
+            sent = batch_texts[sent_index]
+            indexes = batch_pred_tags[sent_index][self.summary_num:len(sent) +
+                                                  self.summary_num]
+            tags = [self._index_to_tags[index] for index in indexes]
+            if self._custom:
+                self._custom.parse_customization(sent, tags, prefix=True)
+            sent_out = []
+            tags_out = []
+            partial_word = ""
+            for ind, tag in enumerate(tags):
+                if partial_word == "":
+                    partial_word = sent[ind]
+                    tags_out.append(tag.split('-')[-1])
+                    continue
+                if tag.startswith("B") or tag.startswith("S") or tag.startswith(
+                        "O"):
+                    sent_out.append(partial_word)
+                    tags_out.append(tag.split('-')[-1])
+                    partial_word = sent[ind]
+                    continue
+                partial_word += sent[ind]
+
+            if len(sent_out) < len(tags_out):
+                sent_out.append(partial_word)
+
+            pred_words = []
+            for s, t in zip(sent_out, tags_out):
+                pred_words.append({"item": s, "offset": 0, "wordtag_label": t})
 
             pred_words = self._reset_offset(pred_words)
-            result = {"text": text, "items": pred_words}
+            result = {"text": sent, "items": pred_words}
             batch_results.append(result)
         return batch_results
 
     def _term_linking(self, wordtag_res):
         for item in wordtag_res["items"]:
-            if item["wordtag_label"] not in LABEL_TO_SCHEMA:
-                continue
             flag, _ = self._termtree.find_term(item["item"])
             if flag is False:
                 continue
-            target_type_can = LABEL_TO_SCHEMA[item["wordtag_label"]]
+            if item["wordtag_label"] not in LABEL_TO_SCHEMA:
+                # Custom label defined by user
+                if item["wordtag_label"] not in self._all_tags:
+                    target_type_can = [item["wordtag_label"]]
+                else:
+                    continue
+            else:
+                target_type_can = LABEL_TO_SCHEMA[item["wordtag_label"]]
             for target_type_raw in target_type_can:
                 target_type_ = target_type_raw.split("|")
                 target_src = None
@@ -448,24 +447,22 @@ class WordTagTask(Task):
                                     name="input_ids"),  # input_ids
             paddle.static.InputSpec(shape=[None, None],
                                     dtype="int64",
-                                    name="token_type_ids"),  # segment_ids
-            paddle.static.InputSpec(shape=[None], dtype="int64", name="lengths")
-        ]  # seq_len
+                                    name="token_type_ids"),  # token_type_ids
+            paddle.static.InputSpec(shape=[None], dtype="int64",
+                                    name="seq_len"),  # seq_len
+        ]
 
     def _construct_model(self, model):
         """
         Construct the inference model for the predictor.
         """
         model_instance = ErnieCtmWordtagModel.from_pretrained(
-            model,
-            num_cls_label=4,
-            num_tag=len(self._tags_to_index),
-            ignore_index=self._tags_to_index["O"])
-        config_keys = ErnieCtmWordtagModel.pretrained_init_configuration[
-            self.model]
-        self.kwargs.update(config_keys)
-        model_instance.eval()
+            self._task_path, num_tag=len(self._tags_to_index))
+        if self._params_path is not None:
+            state_dict = paddle.load(self._params_path)
+            model_instance.set_dict(state_dict)
         self._model = model_instance
+        self._model.eval()
 
     def _construct_tokenizer(self, model):
         """
@@ -489,28 +486,14 @@ class WordTagTask(Task):
         Run the task model from the outputs of the `_tokenize` function. 
         """
         all_pred_tags = []
-        if not self._static_mode:
-            with dygraph_mode_guard():
-                with paddle.no_grad():
-                    for batch in inputs['data_loader']:
-                        input_ids, token_type_ids, seq_len = batch
-                        seq_logits, cls_logits = self._model(input_ids,
-                                                             token_type_ids,
-                                                             lengths=seq_len)
-                        score, pred_tags = self._model.viterbi_decoder(
-                            seq_logits, seq_len)
-                        all_pred_tags.extend(pred_tags.numpy().tolist())
-        else:
-            with static_mode_guard():
-                for batch in inputs['data_loader']:
-                    data_dict = dict()
-                    for name, value in zip(self._static_feed_names, batch):
-                        data_dict[name] = value
-                    results = self._exe.run(
-                        self._static_program,
-                        feed=data_dict,
-                        fetch_list=self._static_fetch_targets)
-                    all_pred_tags.extend(results[1].tolist())
+        for batch in inputs['data_loader']:
+            input_ids, token_type_ids, seq_len = batch
+            self.input_handles[0].copy_from_cpu(input_ids.numpy())
+            self.input_handles[1].copy_from_cpu(token_type_ids.numpy())
+            self.input_handles[2].copy_from_cpu(seq_len.numpy())
+            self.predictor.run()
+            pred_tags = self.output_handle[0].copy_to_cpu()
+            all_pred_tags.extend(pred_tags.tolist())
         inputs['all_pred_tags'] = all_pred_tags
         return inputs
 
@@ -520,11 +503,28 @@ class WordTagTask(Task):
         """
         results = self._decode(inputs['short_input_texts'],
                                inputs['all_pred_tags'])
-        results = self._concat_short_text_reuslts(inputs['inputs'], results)
+        results = self._auto_joiner(results, self.input_mapping, is_dict=True)
+        for result in results:
+            pred_words = result['items']
+            pred_words = self._reset_offset(pred_words)
+            result['items'] = pred_words
         if self.linking is True:
             for res in results:
                 self._term_linking(res)
+        if self._with_ie:
+            ie_results = []
+            for result in results:
+                spo_result = self._ie_extractor.extract_spo(result['items'])
+                ie_results.append(spo_result)
+            return [results, ie_results]
         return results
+
+    def set_schema(self, schema):
+        """User define the schema for the information extraction.
+        Args:
+            schema (List[ Dict[str, Any]]): Dictionary data contain all k-v data. 
+        """
+        self._ie_extractor = WordTagRelationExtractor.from_dict(schema)
 
 
 @add_docstrings(usage)
@@ -537,6 +537,29 @@ class NPTagTask(Task):
         batch_size(int): Numbers of examples a batch.
         linking(bool): Returns the categories. If `linking` is True, the fine-grained label (label) will link with the coarse-grained label (category).
     """
+
+    resource_files_names = {
+        "model_state": "model_state.pdparams",
+        "model_config": "model_config.json",
+        "name_category_map": "name_category_map.json",
+    }
+    resource_files_urls = {
+        "nptag": {
+            "model_state": [
+                "https://bj.bcebos.com/paddlenlp/taskflow/knowledge_mining/nptag/model_state.pdparams",
+                "05ed1906b42126d3e04b4ac5c210b010"
+            ],
+            "model_config": [
+                "https://bj.bcebos.com/paddlenlp/taskflow/knowledge_mining/nptag/model_config.json",
+                "17c9e5216abfc9bd94c7586574a3cbc4"
+            ],
+            "name_category_map": [
+                "https://bj.bcebos.com/paddlenlp/taskflow/knowledge_mining/nptag/name_category_map.json",
+                "c60810205993d307d919a26a3b96786f"
+            ],
+        }
+    }
+
     def __init__(self,
                  task,
                  model,
@@ -546,44 +569,37 @@ class NPTagTask(Task):
                  **kwargs):
         super().__init__(task=task, model=model, **kwargs)
         self._usage = usage
-        self._static_mode = True
         self._batch_size = batch_size
         self._max_seq_len = max_seq_len
         self._linking = linking
+        self._check_task_files()
         self._construct_tokenizer(model)
         self._name_dict = None
         self._summary_num = 2
         self._max_cls_len = 5
-        name_dict_path = download_file(self._task_path,
-                                       "name_category_map.json",
-                                       URLS["name_category_map.json"][0],
-                                       URLS["name_category_map.json"][1])
-        self._construct_dict_map(name_dict_path)
-        if self._static_mode:
-            self._get_inference_model()
-            # Reload Predictor
-            if paddle.get_device().startswith("gpu"):
-                inference_model_path = os.path.join(self._task_path, "static",
-                                                    "inference")
-                model_file = inference_model_path + ".pdmodel"
-                params_file = inference_model_path + ".pdiparams"
-                self._config = paddle.inference.Config(model_file, params_file)
-                self._config.enable_use_gpu(100, 0)
-                self._config.switch_use_feed_fetch_ops(False)
-                self._config.disable_glog_info()
-                self._config.delete_pass(
-                    "embedding_eltwise_layernorm_fuse_pass")
-                self.predictor = paddle.inference.create_predictor(self._config)
-                self.input_handles = [
-                    self.predictor.get_input_handle(name)
-                    for name in self.predictor.get_input_names()
-                ]
-                self.output_handle = [
-                    self.predictor.get_output_handle(name)
-                    for name in self.predictor.get_output_names()
-                ]
-        else:
-            self._construct_model(model)
+        self._construct_dict_map()
+
+        self._get_inference_model()
+        if paddle.get_device().startswith("gpu"):
+            inference_model_path = os.path.join(self._task_path, "static",
+                                                "inference")
+            model_file = inference_model_path + ".pdmodel"
+            params_file = inference_model_path + ".pdiparams"
+            self._config = paddle.inference.Config(model_file, params_file)
+            self._config.enable_use_gpu(100, 0)
+            self._config.switch_use_feed_fetch_ops(False)
+            self._config.disable_glog_info()
+            # TODO(linjieccc): enable embedding_eltwise_layernorm_fuse_pass after fixed
+            self._config.delete_pass("embedding_eltwise_layernorm_fuse_pass")
+            self.predictor = paddle.inference.create_predictor(self._config)
+            self.input_handles = [
+                self.predictor.get_input_handle(name)
+                for name in self.predictor.get_input_names()
+            ]
+            self.output_handle = [
+                self.predictor.get_output_handle(name)
+                for name in self.predictor.get_output_names()
+            ]
 
     @property
     def summary_num(self):
@@ -592,10 +608,11 @@ class NPTagTask(Task):
         """
         return self._summary_num
 
-    def _construct_dict_map(self, name_dict_path):
+    def _construct_dict_map(self):
         """
         Construct dict map for the predictor.
         """
+        name_dict_path = os.path.join(self._task_path, "name_category_map.json")
         with open(name_dict_path, encoding="utf-8") as fp:
             self._name_dict = json.load(fp)
         self._tree = BurkhardKellerTree()
@@ -677,9 +694,9 @@ class NPTagTask(Task):
         """
         Construct the inference model for the predictor.
         """
-        model_instance = ErnieCtmNptagModel.from_pretrained(model)
-        model_instance.eval()
+        model_instance = ErnieCtmNptagModel.from_pretrained(self._task_path)
         self._model = model_instance
+        self._model.eval()
 
     def _construct_tokenizer(self, model):
         """
@@ -704,17 +721,18 @@ class NPTagTask(Task):
 
         def read(inputs):
             for text in inputs:
-                if len(text) + self._max_cls_len + 1 + self._summary_num + 1 > self._max_seq_len:
-                    text = text[:(self._max_seq_len -
+                if len(
+                        text
+                ) + self._max_cls_len + 1 + self._summary_num + 1 > self._max_seq_len:
+                    text = text[:(
+                        self._max_seq_len -
                         (self._max_cls_len + 1 + self._summary_num + 1))]
 
                 tokens = list(text) + prompt_template
-                tokenized_output = self._tokenizer(
-                    tokens,
-                    return_length=True,
-                    is_split_into_words=True,
-                    pad_to_max_seq_len=True,
-                    max_seq_len=self._max_seq_len)
+                tokenized_output = self._tokenizer(tokens,
+                                                   return_length=True,
+                                                   is_split_into_words=True,
+                                                   max_length=self._max_seq_len)
                 label_indices = list(
                     range(tokenized_output["seq_len"] - 1 - self._max_cls_len,
                           tokenized_output["seq_len"] - 1))
@@ -724,8 +742,11 @@ class NPTagTask(Task):
 
         infer_ds = load_dataset(read, inputs=inputs, lazy=lazy_load)
         batchify_fn = lambda samples, fn=Tuple(
-            Stack(dtype='int64'),  # input_ids
-            Stack(dtype='int64'),  # token_type_ids
+            Pad(axis=0, pad_val=self._tokenizer.pad_token_id, dtype='int64'
+                ),  # input_ids
+            Pad(axis=0,
+                pad_val=self._tokenizer.pad_token_type_id,
+                dtype='int64'),  # token_type_ids
             Stack(dtype='int64'),  # label_indices
         ): fn(samples)
 
@@ -745,7 +766,6 @@ class NPTagTask(Task):
         all_scores_can = []
         all_preds_can = []
         pred_ids = []
-
         for batch in inputs['data_loader']:
             input_ids, token_type_ids, label_indices = batch
             self.input_handles[0].copy_from_cpu(input_ids.numpy())
@@ -760,7 +780,6 @@ class NPTagTask(Task):
                 all_scores_can.extend([score_can.tolist()])
                 all_preds_can.extend([pred_id_can.tolist()])
                 pred_ids.extend([pred_id_can[:, 0].tolist()])
-
         inputs['all_scores_can'] = all_scores_can
         inputs['all_preds_can'] = all_preds_can
         inputs['pred_ids'] = pred_ids
@@ -771,12 +790,10 @@ class NPTagTask(Task):
 
         for i in range(len(inputs['texts'])):
             cls_label = self._decode(inputs['pred_ids'][i])
-
             result = {
                 'text': inputs['texts'][i],
                 'label': cls_label,
             }
-
             if cls_label not in self._name_dict:
                 scores_can = inputs['all_scores_can'][i]
                 pred_ids_can = inputs['all_preds_can'][i]
@@ -787,11 +804,13 @@ class NPTagTask(Task):
                     if cls_label_can in self._name_dict:
                         result['label'] = cls_label_can
                         break
-                    else:
-                        labels_can = self._tree.search_similar_word(cls_label)
+                else:
+                    labels_can = self._tree.search_similar_word(cls_label)
+                    if len(labels_can) != 0:
                         result['label'] = labels_can[0][0]
-
+                        break
             if self._linking:
-                result['category'] = self._name_dict[result['label']]
+                if result['label'] in self._name_dict:
+                    result['category'] = self._name_dict[result['label']]
             results.append(result)
         return results

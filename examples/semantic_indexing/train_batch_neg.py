@@ -23,7 +23,7 @@ import numpy as np
 import paddle
 import paddle.nn.functional as F
 
-import paddlenlp as ppnlp
+from paddlenlp.transformers import AutoModel, AutoTokenizer
 from paddlenlp.data import Stack, Tuple, Pad
 from paddlenlp.datasets import load_dataset
 from paddlenlp.transformers import LinearDecayWithWarmup
@@ -37,18 +37,20 @@ parser.add_argument("--save_dir", default='./checkpoint', type=str, help="The ou
 parser.add_argument("--max_seq_length", default=128, type=int, help="The maximum total input sequence length after tokenization. "
     "Sequences longer than this will be truncated, sequences shorter will be padded.")
 parser.add_argument("--batch_size", default=32, type=int, help="Batch size per GPU/CPU for training.")
-parser.add_argument("--output_emb_size", default=None, type=int, help="output_embedding_size")
+parser.add_argument("--output_emb_size", default=None, type=int, help="output_embedding_size.")
 parser.add_argument("--learning_rate", default=1e-5, type=float, help="The initial learning rate for Adam.")
 parser.add_argument("--weight_decay", default=0.0, type=float, help="Weight decay if we apply some.")
 parser.add_argument("--epochs", default=10, type=int, help="Total number of training epochs to perform.")
 parser.add_argument("--warmup_proportion", default=0.0, type=float, help="Linear warmup proption over the training process.")
 parser.add_argument("--init_from_ckpt", type=str, default=None, help="The path of checkpoint to be loaded.")
-parser.add_argument("--seed", type=int, default=1000, help="random seed for initialization")
+parser.add_argument("--seed", type=int, default=1000, help="random seed for initialization.")
 parser.add_argument('--device', choices=['cpu', 'gpu'], default="gpu", help="Select which device to train model, defaults to gpu.")
-parser.add_argument('--save_steps', type=int, default=10000, help="Inteval steps to save checkpoint")
-parser.add_argument("--train_set_file", type=str, required=True, help="The full path of train_set_file")
-parser.add_argument("--margin", default=0.3, type=float, help="Margin beteween pos_sample and neg_samples")
+parser.add_argument('--save_steps', type=int, default=10000, help="Inteval steps to save checkpoint.")
+parser.add_argument("--train_set_file", type=str, required=True, help="The full path of train_set_file.")
+parser.add_argument("--margin", default=0.3, type=float, help="Margin beteween pos_sample and neg_samples.")
 parser.add_argument("--scale", default=30, type=int, help="Scale for pair-wise margin_rank_loss")
+parser.add_argument("--use_amp", action="store_true", help="Whether to use AMP.")
+parser.add_argument("--amp_loss_scale", default=32768, type=float, help="The value of scale_loss for fp16. This is only used for AMP training.")
 
 
 args = parser.parse_args()
@@ -70,24 +72,17 @@ def do_train():
 
     set_seed(args.seed)
 
-    train_ds = load_dataset(
-        read_text_pair, data_path=args.train_set_file, lazy=False)
+    train_ds = load_dataset(read_text_pair,
+                            data_path=args.train_set_file,
+                            lazy=False)
 
-    # If you wanna use bert/roberta pretrained model,
-    # pretrained_model = ppnlp.transformers.BertModel.from_pretrained('bert-base-chinese')
-    # pretrained_model = ppnlp.transformers.RobertaModel.from_pretrained('roberta-wwm-ext')
-    pretrained_model = ppnlp.transformers.ErnieModel.from_pretrained(
-        'ernie-1.0')
+    pretrained_model = AutoModel.from_pretrained('ernie-3.0-medium-zh')
 
-    # If you wanna use bert/roberta pretrained model,
-    # tokenizer = ppnlp.transformers.BertTokenizer.from_pretrained('bert-base-chinese')
-    # tokenizer = ppnlp.transformers.RobertaTokenizer.from_pretrained('roberta-wwm-ext')
-    tokenizer = ppnlp.transformers.ErnieTokenizer.from_pretrained('ernie-1.0')
+    tokenizer = AutoTokenizer.from_pretrained('ernie-3.0-medium-zh')
 
-    trans_func = partial(
-        convert_example,
-        tokenizer=tokenizer,
-        max_seq_length=args.max_seq_length)
+    trans_func = partial(convert_example,
+                         tokenizer=tokenizer,
+                         max_seq_length=args.max_seq_length)
 
     batchify_fn = lambda samples, fn=Tuple(
         Pad(axis=0, pad_val=tokenizer.pad_token_id),  # query_input
@@ -96,18 +91,16 @@ def do_train():
         Pad(axis=0, pad_val=tokenizer.pad_token_type_id),  # tilte_segment
     ): [data for data in fn(samples)]
 
-    train_data_loader = create_dataloader(
-        train_ds,
-        mode='train',
-        batch_size=args.batch_size,
-        batchify_fn=batchify_fn,
-        trans_fn=trans_func)
+    train_data_loader = create_dataloader(train_ds,
+                                          mode='train',
+                                          batch_size=args.batch_size,
+                                          batchify_fn=batchify_fn,
+                                          trans_fn=trans_func)
 
-    model = SemanticIndexBatchNeg(
-        pretrained_model,
-        margin=args.margin,
-        scale=args.scale,
-        output_emb_size=args.output_emb_size)
+    model = SemanticIndexBatchNeg(pretrained_model,
+                                  margin=args.margin,
+                                  scale=args.scale,
+                                  output_emb_size=args.output_emb_size)
 
     if args.init_from_ckpt and os.path.isfile(args.init_from_ckpt):
         state_dict = paddle.load(args.init_from_ckpt)
@@ -133,29 +126,42 @@ def do_train():
         weight_decay=args.weight_decay,
         apply_decay_param_fun=lambda x: x in decay_params)
 
+    if args.use_amp:
+        scaler = paddle.amp.GradScaler(init_loss_scaling=args.amp_loss_scale)
+
     global_step = 0
     tic_train = time.time()
     for epoch in range(1, args.epochs + 1):
         for step, batch in enumerate(train_data_loader, start=1):
             query_input_ids, query_token_type_ids, title_input_ids, title_token_type_ids = batch
 
-            loss = model(
-                query_input_ids=query_input_ids,
-                title_input_ids=title_input_ids,
-                query_token_type_ids=query_token_type_ids,
-                title_token_type_ids=title_token_type_ids)
+            with paddle.amp.auto_cast(
+                    args.use_amp,
+                    custom_white_list=["layer_norm", "softmax", "gelu"]):
+                loss = model(query_input_ids=query_input_ids,
+                             title_input_ids=title_input_ids,
+                             query_token_type_ids=query_token_type_ids,
+                             title_token_type_ids=title_token_type_ids)
+
+            if args.use_amp:
+                scaled = scaler.scale(loss)
+                scaled.backward()
+                scaler.minimize(optimizer, scaled)
+            else:
+                loss.backward()
+                optimizer.step()
 
             global_step += 1
             if global_step % 10 == 0 and rank == 0:
                 print(
                     "global step %d, epoch: %d, batch: %d, loss: %.5f, speed: %.2f step/s"
-                    % (global_step, epoch, step, loss,
-                       10 / (time.time() - tic_train)))
+                    % (global_step, epoch, step, loss, 10 /
+                       (time.time() - tic_train)))
                 tic_train = time.time()
-            loss.backward()
-            optimizer.step()
+
             lr_scheduler.step()
             optimizer.clear_grad()
+
             if global_step % args.save_steps == 0 and rank == 0:
                 save_dir = os.path.join(args.save_dir, "model_%d" % global_step)
                 if not os.path.exists(save_dir):

@@ -27,15 +27,9 @@ import paddle.nn.functional as F
 from ..datasets import load_dataset, MapDataset
 from ..data import Stack, Pad, Tuple, Vocab, JiebaTokenizer
 from .utils import download_file, add_docstrings, static_mode_guard, dygraph_mode_guard
+from .utils import Customization
 from .task import Task
 from .models import BiGruCrf
-
-URLS = {
-    "lac_params": [
-        "https://paddlenlp.bj.bcebos.com/taskflow/lexical_analysis/lac/lac_params.tar.gz",
-        'ee9a3eaba5f74105410410e3c5b28fbc'
-    ],
-}
 
 usage = r"""
            from paddlenlp import Taskflow 
@@ -73,7 +67,7 @@ def load_vocab(dict_path):
                 else:
                     key, value = terms
             elif len(terms) == 1:
-                key, value = terms[0], i
+                key, value = terms[0], str(i)
             else:
                 raise ValueError("Error line: %s in file: %s" %
                                  (line, dict_path))
@@ -87,22 +81,66 @@ class LacTask(Task):
     Args:
         task(string): The name of task.
         model(string): The model name in the task.
+        user_dict(string): The user-defined dictionary, default to None.
         kwargs (dict, optional): Additional keyword arguments passed along to the specific task. 
     """
 
-    def __init__(self, task, model, **kwargs):
+    resource_files_names = {
+        "model_state": "model_state.pdparams",
+        "tags": "tag.dic",
+        "q2b": "q2b.dic",
+        "word": "word.dic",
+    }
+    resource_files_urls = {
+        "lac": {
+            "model_state": [
+                "https://bj.bcebos.com/paddlenlp/taskflow/lexical_analysis/lac/model_state.pdparams",
+                "3d4008c6c9d29424465829c9acf909bd"
+            ],
+            "tags": [
+                "https://bj.bcebos.com/paddlenlp/taskflow/lexical_analysis/lac/tag.dic",
+                "b11b616926b9f7f0a40a8087f84a8a99"
+            ],
+            "q2b": [
+                "https://bj.bcebos.com/paddlenlp/taskflow/lexical_analysis/lac/q2b.dic",
+                "4ef2cd16f8002fe7cd7dd31cdff47e0d"
+            ],
+            "word": [
+                "https://bj.bcebos.com/paddlenlp/taskflow/lexical_analysis/lac/word.dic",
+                "f1dfc68139bb6dd58c9c4313c341e436"
+            ],
+        }
+    }
+
+    def __init__(self, task, model, user_dict=None, **kwargs):
         super().__init__(task=task, model=model, **kwargs)
-        self._static_mode = False
         self._usage = usage
-        word_dict_path = download_file(
-            self._task_path, "lac_params" + os.path.sep + "word.dic",
-            URLS['lac_params'][0], URLS['lac_params'][1])
-        tag_dict_path = download_file(
-            self._task_path, "lac_params" + os.path.sep + "tag.dic",
-            URLS['lac_params'][0], URLS['lac_params'][1])
-        q2b_dict_path = download_file(
-            self._task_path, "lac_params" + os.path.sep + "q2b.dic",
-            URLS['lac_params'][0], URLS['lac_params'][1])
+        self._user_dict = user_dict
+        self._check_task_files()
+        self._construct_vocabs()
+        self._get_inference_model()
+        self._max_seq_len = 512
+        if self._user_dict:
+            self._custom = Customization()
+            self._custom.load_customization(self._user_dict)
+        else:
+            self._custom = None
+
+    def _construct_input_spec(self):
+        """
+       Construct the input spec for the convert dygraph model to static model.
+       """
+        self._input_spec = [
+            paddle.static.InputSpec(shape=[None, None],
+                                    dtype="int64",
+                                    name='token_ids'),
+            paddle.static.InputSpec(shape=[None], dtype="int64", name='length')
+        ]
+
+    def _construct_vocabs(self):
+        word_dict_path = os.path.join(self._task_path, "word.dic")
+        tag_dict_path = os.path.join(self._task_path, "tag.dic")
+        q2b_dict_path = os.path.join(self._task_path, "q2b.dic")
         self._word_vocab = load_vocab(word_dict_path)
         self._tag_vocab = load_vocab(tag_dict_path)
         self._q2b_vocab = load_vocab(q2b_dict_path)
@@ -110,21 +148,6 @@ class LacTask(Task):
             zip(self._word_vocab.values(), self._word_vocab.keys()))
         self._id2tag_dict = dict(
             zip(self._tag_vocab.values(), self._tag_vocab.keys()))
-        if self._static_mode:
-            self._get_inference_model()
-        else:
-            self._construct_model(model)
-
-    def _construct_input_spec(self):
-        """
-       Construct the input spec for the convert dygraph model to static model.
-       """
-        self._input_spec = [
-            paddle.static.InputSpec(
-                shape=[None, None], dtype="int64", name='token_ids'),
-            paddle.static.InputSpec(
-                shape=[None], dtype="int64", name='length')
-        ]
 
     def _construct_model(self, model):
         """
@@ -135,10 +158,10 @@ class LacTask(Task):
                                   len(self._word_vocab), len(self._tag_vocab))
         # Load the model parameter for the predict
         state_dict = paddle.load(
-            os.path.join(self._task_path, "lac_params", "model.pdparams"))
+            os.path.join(self._task_path, "model_state.pdparams"))
         model_instance.set_dict(state_dict)
-        model_instance.eval()
         self._model = model_instance
+        self._model.eval()
 
     def _construct_tokenizer(self, model):
         """
@@ -158,17 +181,24 @@ class LacTask(Task):
             'batch_size'] if 'batch_size' in self.kwargs else 1
         num_workers = self.kwargs[
             'num_workers'] if 'num_workers' in self.kwargs else 0
+        self._split_sentence = self.kwargs[
+            'split_sentence'] if 'split_sentence' in self.kwargs else False
         infer_data = []
         oov_token_id = self._word_vocab.get("OOV")
 
         filter_inputs = []
+        for input in inputs:
+            if not (isinstance(input, str) and len(input.strip()) > 0):
+                continue
+            filter_inputs.append(input)
+
+        short_input_texts, self.input_mapping = self._auto_splitter(
+            filter_inputs,
+            self._max_seq_len,
+            split_sentence=self._split_sentence)
 
         def read(inputs):
             for input_tokens in inputs:
-                if not (isinstance(input_tokens, str) and
-                        len(input_tokens.strip()) > 0):
-                    continue
-                filter_inputs.append(input_tokens)
                 ids = []
                 for token in input_tokens:
                     token = self._q2b_vocab.get(token, token)
@@ -177,20 +207,19 @@ class LacTask(Task):
                 lens = len(ids)
                 yield ids, lens
 
-        infer_ds = load_dataset(read, inputs=inputs, lazy=False)
+        infer_ds = load_dataset(read, inputs=short_input_texts, lazy=False)
         batchify_fn = lambda samples, fn=Tuple(
             Pad(axis=0, pad_val=0, dtype="int64"),  # input_ids
             Stack(dtype='int64'),  # seq_len
         ): fn(samples)
-        infer_data_loader = paddle.io.DataLoader(
-            infer_ds,
-            collate_fn=batchify_fn,
-            num_workers=num_workers,
-            batch_size=batch_size,
-            shuffle=False,
-            return_list=True)
+        infer_data_loader = paddle.io.DataLoader(infer_ds,
+                                                 collate_fn=batchify_fn,
+                                                 num_workers=num_workers,
+                                                 batch_size=batch_size,
+                                                 shuffle=False,
+                                                 return_list=True)
         outputs = {}
-        outputs['text'] = filter_inputs
+        outputs['text'] = short_input_texts
         outputs['data_loader'] = infer_data_loader
         return outputs
 
@@ -200,23 +229,15 @@ class LacTask(Task):
         """
         results = []
         lens = []
-        if not self._static_mode:
-            with dygraph_mode_guard():
-                for batch in inputs['data_loader']:
-                    input_ids, seq_len = batch
-                    tags_ids = self._model(input_ids, seq_len)
-                    results.extend(tags_ids.numpy().tolist())
-                    lens.extend(seq_len.numpy().tolist())
-        else:
-            with static_mode_guard():
-                for batch in inputs['data_loader']:
-                    input_ids, seq_len = batch
-                    self.input_handles[0].copy_from_cpu(input_ids)
-                    self.input_handles[1].copy_from_cpu(seq_len)
-                    self.predictor.run()
-                    tags_ids = self.output_handle[0].copy_to_cpu()
-                    results.extend(tags_ids.tolist())
-                    lens.extend(seq_len.tolist())
+        for batch in inputs['data_loader']:
+            input_ids, seq_len = batch
+            self.input_handles[0].copy_from_cpu(input_ids.numpy())
+            self.input_handles[1].copy_from_cpu(seq_len.numpy())
+            self.predictor.run()
+            tags_ids = self.output_handle[0].copy_to_cpu()
+            results.extend(tags_ids.tolist())
+            lens.extend(seq_len.tolist())
+
         inputs['result'] = results
         inputs['lens'] = lens
         return inputs
@@ -237,6 +258,8 @@ class LacTask(Task):
                 for index in preds[sent_index][:lengths[sent_index]]
             ]
             sent = sents[sent_index]
+            if self._custom:
+                self._custom.parse_customization(sent, tags)
             sent_out = []
             tags_out = []
             parital_word = ""
@@ -254,8 +277,12 @@ class LacTask(Task):
 
             if len(sent_out) < len(tags_out):
                 sent_out.append(parital_word)
+
             single_result['text'] = sent
             single_result['segs'] = sent_out
             single_result['tags'] = tags_out
             final_results.append(single_result)
+        final_results = self._auto_joiner(final_results,
+                                          self.input_mapping,
+                                          is_dict=True)
         return final_results

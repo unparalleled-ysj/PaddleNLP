@@ -16,7 +16,7 @@ import argparse
 import os
 
 import paddle
-import paddlenlp as ppnlp
+from paddlenlp.transformers import AutoModel
 
 from model import MultiLabelClassifier
 
@@ -29,10 +29,12 @@ args = parser.parse_args()
 
 if __name__ == "__main__":
     # The number of labels should be in accordance with the training dataset.
-    label_info = ['toxic', 'severe_toxic', 'obscene', 'threat', 'insult', 'identity_hate']
+    label_info = [
+        'toxic', 'severe_toxic', 'obscene', 'threat', 'insult', 'identity_hate'
+    ]
 
     # Load pretrained model
-    pretrained_model = ppnlp.transformers.BertModel.from_pretrained("bert-base-uncased")
+    pretrained_model = AutoModel.from_pretrained("bert-base-uncased")
 
     model = MultiLabelClassifier(pretrained_model, num_labels=len(label_info))
 
@@ -46,10 +48,10 @@ if __name__ == "__main__":
     model = paddle.jit.to_static(
         model,
         input_spec=[
-            paddle.static.InputSpec(
-                shape=[None, None], dtype="int64"),  # input_ids
-            paddle.static.InputSpec(
-                shape=[None, None], dtype="int64")  # segment_ids
+            paddle.static.InputSpec(shape=[None, None],
+                                    dtype="int64"),  # input_ids
+            paddle.static.InputSpec(shape=[None, None],
+                                    dtype="int64")  # segment_ids
         ])
     # Save in static graph model.
     paddle.jit.save(model, args.output_path)

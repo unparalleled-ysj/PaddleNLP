@@ -26,19 +26,19 @@ __all__ = ['Poetry']
 
 
 class Poetry(DatasetBuilder):
-    URL = "https://paddlenlp.bj.bcebos.com/datasets/poetry.tar.gz"
+    URL = "https://bj.bcebos.com/paddlenlp/datasets/poetry.tar.gz"
     MD5 = '8edd7eda1b273145b70ef29c82cd622b'
     META_INFO = collections.namedtuple('META_INFO', ('file', 'md5'))
     SPLITS = {
-        'train': META_INFO(
-            os.path.join('poetry', 'train.tsv'),
-            '176c6202b5e71656ae7e7848eec4c54f'),
-        'dev': META_INFO(
-            os.path.join('poetry', 'dev.tsv'),
-            '737e4b6da5facdc0ac33fe688df19931'),
-        'test': META_INFO(
-            os.path.join('poetry', 'test.tsv'),
-            '1dca907b2d712730c7c828f8acee7431'),
+        'train':
+        META_INFO(os.path.join('poetry', 'train.tsv'),
+                  '176c6202b5e71656ae7e7848eec4c54f'),
+        'dev':
+        META_INFO(os.path.join('poetry', 'dev.tsv'),
+                  '737e4b6da5facdc0ac33fe688df19931'),
+        'test':
+        META_INFO(os.path.join('poetry', 'test.tsv'),
+                  '1dca907b2d712730c7c828f8acee7431'),
     }
 
     def _get_data(self, mode, **kwargs):

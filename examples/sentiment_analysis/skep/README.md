@@ -7,7 +7,7 @@
 论文地址：https://arxiv.org/abs/2005.05635
 
 <p align="center">
-<img src="https://paddlenlp.bj.bcebos.com/models/transformers/skep/skep.png" width="80%" height="60%"> <br />
+<img src="https://bj.bcebos.com/paddlenlp/models/transformers/skep/skep.png" width="80%" height="60%"> <br />
 </p>
 
 百度研究团队在三个典型情感分析任务，句子级情感分类（Sentence-level Sentiment Classification），评价对象级情感分类（Aspect-level Sentiment Classification）、观点抽取（Opinion Role Labeling），共计14个中英文数据上进一步验证了情感预训练模型SKEP的效果。实验表明，以通用预训练模型ERNIE作为初始化，具体效果如下表：
@@ -122,7 +122,7 @@ model = paddlenlp.transformers.SkepForSequenceClassification.from_pretrained(
 tokenizer = paddlenlp.transformers.SkepTokenizer.from_pretrained(
     "skep_ernie_1.0_large_ch")
 ```
-更多预训练模型，参考[transformers](../../../docs/model_zoo/transformers.rst)
+更多预训练模型，参考[transformers](https://paddlenlp.readthedocs.io/zh/latest/model_zoo/index.html#transformer)
 
 
 程序运行时将会自动进行训练，评估，测试。同时训练过程中会自动保存模型在指定的`save_dir`中。

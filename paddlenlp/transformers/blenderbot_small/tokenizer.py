@@ -72,36 +72,36 @@ class BlenderbotSmallTokenizer(GPTTokenizer):
     pretrained_resource_files_map = {
         "vocab_file": {
             "blenderbot_small-90M":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/blenderbot_small/blenderbot_small-90M-vocab.json",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/blenderbot_small/blenderbot_small-90M-vocab.json",
         },
         "merges_file": {
             "blenderbot_small-90M":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/blenderbot_small/blenderbot_small-90M-merges.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/blenderbot_small/blenderbot_small-90M-merges.txt",
         }
     }
     pretrained_init_configuration = {"blenderbot_small-90M": {}}
 
-    def __init__(
-            self,
-            vocab_file,
-            merges_file,
-            errors='replace',
-            max_len=None,
-            special_tokens=None,
-            bos_token="__start__",
-            eos_token="__end__",
-            unk_token="__unk__",
-            pad_token="__null__",
-            eol_token="__newln__", ):
-        super(BlenderbotSmallTokenizer, self).__init__(
-            vocab_file=vocab_file,
-            merges_file=merges_file,
-            errors=errors,
-            max_len=max_len,
-            special_tokens=special_tokens,
-            pad_token=pad_token,
-            eos_token=eos_token,
-            eol_token=eol_token)
+    def __init__(self,
+                 vocab_file,
+                 merges_file,
+                 errors='replace',
+                 max_len=None,
+                 special_tokens=None,
+                 bos_token="__start__",
+                 eos_token="__end__",
+                 unk_token="__unk__",
+                 pad_token="__null__",
+                 eol_token="__newln__",
+                 **kwargs):
+        super(BlenderbotSmallTokenizer,
+              self).__init__(vocab_file=vocab_file,
+                             merges_file=merges_file,
+                             errors=errors,
+                             max_len=max_len,
+                             special_tokens=special_tokens,
+                             pad_token=pad_token,
+                             eos_token=eos_token,
+                             eol_token=eol_token)
         self.pat = r"\S+\n?"  # String matching pattern of BlenderbotSmall is different from Blenderbot
         self.unk_id = self.encoder[unk_token]
         self.eol_token = eol_token
@@ -178,28 +178,6 @@ class BlenderbotSmallTokenizer(GPTTokenizer):
             words.append(word)
         return " ".join(words)
 
-    def convert_tokens_to_ids(self, tokens):
-        """
-        Converts a sequence of tokens into ids.
-        Args：
-            tokens (list[int]): List of token ids.
-
-        Returns:
-            list: Converted id list.
-        """
-        ids = []
-        if isinstance(tokens, str):
-            if tokens in self.special_tokens:
-                return self.special_tokens[tokens]
-            else:
-                return self.encoder.get(tokens, self.unk_id)
-        for token in tokens:
-            if token in self.special_tokens:
-                ids.append(self.special_tokens[token])
-            else:
-                ids.append(self.encoder.get(token, self.unk_id))
-        return ids
-
     def convert_tokens_to_string(self, tokens):
         """
         Converts a sequence of tokens (list of string) to a single string.
@@ -232,31 +210,10 @@ class BlenderbotSmallTokenizer(GPTTokenizer):
             ids, skip_special_tokens=skip_special_tokens)
         output_string = self.convert_tokens_to_string(tokens)
         if clean_up_tokenization_spaces:
-            output_string = (output_string.replace(" .", ".").replace(" ?", "?")
-                             .replace(" !", "!").replace(" ,", ",")
-                             .replace(" ' ", "'").replace(" n't", "n't")
-                             .replace(" 'm", "'m").replace(" 's", "'s")
-                             .replace(" 've", "'ve").replace(" 're", "'re"))
+            output_string = (output_string.replace(" .", ".").replace(
+                " ?", "?").replace(" !", "!").replace(" ,", ",").replace(
+                    " ' ",
+                    "'").replace(" n't", "n't").replace(" 'm", "'m").replace(
+                        " 's", "'s").replace(" 've",
+                                             "'ve").replace(" 're", "'re"))
         return output_string
-
-    def convert_ids_to_tokens(self, ids, skip_special_tokens=False):
-        """
-        Converts a token id or a sequence of token ids (integer) to a token or
-        a sequence of tokens (str) by using the `vocab` attribute (an instance
-        of `Vocab`).
-
-        Args:
-            ids (int` or `list[int]):
-                A token id or a sequence of token ids.
-            skip_special_tokens (bool, optional):
-                Whether to skip and not decode special tokens when converting. Defaults to `False`.
-        Returns:
-            str: Converted token or token sequence.
-        """
-        tokens = [self.decoder[i] for i in ids]
-        if skip_special_tokens and isinstance(tokens, list):
-            tokens = [
-                token for token in tokens
-                if token not in self.all_special_tokens
-            ]
-        return tokens
