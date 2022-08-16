@@ -20,7 +20,7 @@ from functools import partial
 
 import numpy as np
 import paddle
-import paddlenlp as ppnlp
+from paddlenlp.transformers import AutoModel, AutoTokenizer
 from paddlenlp.transformers.optimization import LinearDecayWithWarmup
 from paddlenlp.datasets import load_dataset
 
@@ -35,7 +35,7 @@ parser = argparse.ArgumentParser()
 # Train
 parser.add_argument("--device", choices=["cpu", "gpu"], default="gpu", help="Select which device to train model, defaults to gpu.")
 parser.add_argument("--task_name", choices=["nlpcc13_evsam05_thu", "nlpcc13_evsam05_hit"], type=str, default="nlpcc13_evsam05_thu", help="Select the task.")
-parser.add_argument("--encoding_model", choices=["lstm", "lstm-pe", "ernie-1.0", "ernie-tiny", "ernie-gram-zh"], type=str, default="ernie-1.0", help="Select the encoding model.")
+parser.add_argument("--encoding_model", choices=["lstm", "lstm-pe", "ernie-3.0-medium-zh", "ernie-1.0", "ernie-tiny", "ernie-gram-zh"], type=str, default="ernie-3.0-medium-zh", help="Select the encoding model.")
 parser.add_argument("--epochs", type=int, default=100, help="Number of epoches for training.")
 parser.add_argument("--save_dir", type=str, default='model_file/', help="Directory to save model parameters.")
 parser.add_argument("--batch_size", type=int, default=1000, help="Numbers of examples a batch for training.")
@@ -65,29 +65,31 @@ def set_seed(seed):
 
 @paddle.no_grad()
 def batch_evaluate(
-        model, 
-        metric, 
-        criterion, 
-        data_loader, 
-        word_pad_index, 
-        word_bos_index,
-        word_eos_index,
-    ):
+    model,
+    metric,
+    criterion,
+    data_loader,
+    word_pad_index,
+    word_bos_index,
+    word_eos_index,
+):
     model.eval()
     metric.reset()
     losses = []
     for batch in data_loader():
-        if args.encoding_model.startswith("ernie") or args.encoding_model == "lstm-pe":
+        if args.encoding_model.startswith(
+                "ernie") or args.encoding_model == "lstm-pe":
             words, arcs, rels = batch
             words, feats = flat_words(words)
             s_arc, s_rel, words = model(words, feats)
         else:
             words, feats, arcs, rels = batch
-            s_arc, s_rel, words = model(words, feats)   
+            s_arc, s_rel, words = model(words, feats)
 
         mask = paddle.logical_and(
-                paddle.logical_and(words != word_pad_index, words != word_bos_index),
-                words != word_eos_index,
+            paddle.logical_and(words != word_pad_index,
+                               words != word_bos_index),
+            words != word_eos_index,
         )
 
         loss = criterion(s_arc, s_rel, arcs, rels, mask)
@@ -111,11 +113,11 @@ def do_train(args):
         paddle.distributed.init_parallel_env()
 
     if args.encoding_model == "ernie-gram-zh":
-        tokenizer = ppnlp.transformers.ErnieGramTokenizer.from_pretrained(args.encoding_model)
+        tokenizer = AutoTokenizer.from_pretrained(args.encoding_model)
     elif args.encoding_model.startswith("ernie"):
-        tokenizer = ppnlp.transformers.ErnieTokenizer.from_pretrained(args.encoding_model)
+        tokenizer = AutoTokenizer.from_pretrained(args.encoding_model)
     elif args.encoding_model == "lstm-pe":
-        tokenizer = ppnlp.transformers.ErnieTokenizer.from_pretrained("ernie-1.0")
+        tokenizer = AutoTokenizer.from_pretrained("ernie-3.0-medium-zh")
     else:
         tokenizer = None
 
@@ -133,11 +135,11 @@ def do_train(args):
 
     train_corpus = [word_examples, feat_examples, rel_examples]
     vocabs = build_vocab(
-        train_corpus, 
-        tokenizer, 
+        train_corpus,
+        tokenizer,
         encoding_model=args.encoding_model,
         feat=args.feat,
-        )
+    )
     word_vocab, feat_vocab, rel_vocab = vocabs
 
     if not os.path.exists(args.save_dir):
@@ -160,10 +162,10 @@ def do_train(args):
         word_eos_index = word_vocab.to_indices("[SEP]")
 
     n_rels, n_words = len(rel_vocab), len(word_vocab)
-    
+
     trans_fn = partial(
-        convert_example, 
-        vocabs=vocabs, 
+        convert_example,
+        vocabs=vocabs,
         encoding_model=args.encoding_model,
         feat=args.feat,
     )
@@ -183,11 +185,11 @@ def do_train(args):
         trans_fn=trans_fn,
     )
 
-    # Load pretrained model if encoding model is ernie-1.0, ernie-tiny or ernie-gram-zh
-    if args.encoding_model in ["ernie-1.0", "ernie-tiny"]:
-        pretrained_model = ppnlp.transformers.ErnieModel.from_pretrained(args.encoding_model)
-    elif args.encoding_model == "ernie-gram-zh":
-        pretrained_model = ppnlp.transformers.ErnieGramModel.from_pretrained(args.encoding_model)       
+    # Load pretrained model if encoding model is ernie-3.0-medium-zh, ernie-1.0, ernie-tiny or ernie-gram-zh
+    if args.encoding_model in [
+            "ernie-3.0-medium-zh", "ernie-1.0", "ernie-tiny", "ernie-gram-zh"
+    ]:
+        pretrained_model = AutoModel.from_pretrained(args.encoding_model)
     else:
         pretrained_model = None
 
@@ -221,7 +223,8 @@ def do_train(args):
     num_training_steps = len(list(train_data_loader)) * args.epochs
 
     # Define the training strategy
-    lr_scheduler = LinearDecayWithWarmup(lr, num_training_steps, args.warmup_proportion)
+    lr_scheduler = LinearDecayWithWarmup(lr, num_training_steps,
+                                         args.warmup_proportion)
     grad_clip = paddle.nn.ClipGradByGlobalNorm(clip_norm=args.clip)
     if args.encoding_model.startswith("ernie"):
         optimizer = paddle.optimizer.AdamW(
@@ -250,16 +253,18 @@ def do_train(args):
     tic_train = time.time()
     for epoch in range(1, args.epochs + 1):
         for inputs in train_data_loader():
-            if args.encoding_model.startswith("ernie") or args.encoding_model == "lstm-pe":
+            if args.encoding_model.startswith(
+                    "ernie") or args.encoding_model == "lstm-pe":
                 words, arcs, rels = inputs
                 words, feats = flat_words(words)
                 s_arc, s_rel, words = model(words, feats)
             else:
                 words, feats, arcs, rels = inputs
                 s_arc, s_rel, words = model(words, feats)
-        
+
             mask = paddle.logical_and(
-                paddle.logical_and(words != word_pad_index, words != word_bos_index),
+                paddle.logical_and(words != word_pad_index,
+                                   words != word_bos_index),
                 words != word_eos_index,
             )
 
@@ -273,29 +278,31 @@ def do_train(args):
             if global_step % 10 == 0 and rank == 0:
                 print(
                     "global step %d, epoch: %d, loss: %.5f, speed: %.2f step/s"
-                    % (global_step, epoch, loss.numpy().item(), 10 / (time.time() - tic_train)))
+                    % (global_step, epoch, loss.numpy().item(), 10 /
+                       (time.time() - tic_train)))
                 tic_train = time.time()
 
         if rank == 0:
             # Evaluate on dev dataset
             loss, uas, las = batch_evaluate(
-                model, 
-                metric, 
-                criterion, 
+                model,
+                metric,
+                criterion,
                 dev_data_loader,
                 word_pad_index,
                 word_bos_index,
                 word_eos_index,
             )
-            print("eval loss: %.5f, UAS: %.2f%%, LAS: %.2f%%" % (loss, uas*100, las*100))
+            print("eval loss: %.5f, UAS: %.2f%%, LAS: %.2f%%" %
+                  (loss, uas * 100, las * 100))
             # Save model parameter of last epoch
             save_param_path = os.path.join(args.save_dir, "last_epoch.pdparams")
-            paddle.save(model.state_dict(), save_param_path)       
+            paddle.save(model.state_dict(), save_param_path)
             # Save the model if it get a higher score of las
             if las > best_las:
                 save_param_path = os.path.join(args.save_dir, "best.pdparams")
-                paddle.save(model.state_dict(), save_param_path)  
-                best_las = las 
+                paddle.save(model.state_dict(), save_param_path)
+                best_las = las
 
 
 if __name__ == "__main__":

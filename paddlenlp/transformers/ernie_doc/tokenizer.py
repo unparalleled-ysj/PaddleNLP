@@ -69,7 +69,7 @@ class ErnieDocTokenizer(ErnieTokenizer):
     pretrained_resource_files_map = {
         "vocab_file": {
             "ernie-doc-base-zh":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/ernie-doc-base-zh/vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/ernie-doc-base-zh/vocab.txt",
         }
     }
     pretrained_init_configuration = {
@@ -85,15 +85,15 @@ class ErnieDocTokenizer(ErnieTokenizer):
                  sep_token="[SEP]",
                  pad_token="[PAD]",
                  cls_token="[CLS]",
-                 mask_token="[MASK]"):
-        super(ErnieDocTokenizer, self).__init__(
-            vocab_file,
-            do_lower_case=do_lower_case,
-            unk_token=unk_token,
-            sep_token=sep_token,
-            pad_token=pad_token,
-            cls_token=cls_token,
-            mask_token=mask_token)
+                 mask_token="[MASK]",
+                 **kwargs):
+        super(ErnieDocTokenizer, self).__init__(vocab_file,
+                                                do_lower_case=do_lower_case,
+                                                unk_token=unk_token,
+                                                sep_token=sep_token,
+                                                pad_token=pad_token,
+                                                cls_token=cls_token,
+                                                mask_token=mask_token)
 
 
 class ErnieDocBPETokenizer(BPETokenizer):
@@ -145,15 +145,15 @@ class ErnieDocBPETokenizer(BPETokenizer):
     pretrained_resource_files_map = {
         "vocab_file": {
             "ernie-doc-base-en":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/ernie-doc-base-en/vocab.txt"
+            "https://bj.bcebos.com/paddlenlp/models/transformers/ernie-doc-base-en/vocab.txt"
         },
         "encoder_json_path": {
             "ernie-doc-base-en":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/ernie-doc-base-en/encoder.json"
+            "https://bj.bcebos.com/paddlenlp/models/transformers/ernie-doc-base-en/encoder.json"
         },
         "vocab_bpe_path": {
             "ernie-doc-base-en":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/ernie-doc-base-en/vocab.bpe"
+            "https://bj.bcebos.com/paddlenlp/models/transformers/ernie-doc-base-en/vocab.bpe"
         }
     }
     pretrained_init_configuration = {
@@ -170,13 +170,24 @@ class ErnieDocBPETokenizer(BPETokenizer):
                  sep_token="[SEP]",
                  pad_token="[PAD]",
                  cls_token="[CLS]",
-                 mask_token="[MASK]"):
-        super(ErnieDocBPETokenizer, self).__init__(
-            vocab_file,
-            encoder_json_path=encoder_json_path,
-            vocab_bpe_path=vocab_bpe_path,
-            unk_token=unk_token,
-            sep_token=sep_token,
-            pad_token=pad_token,
-            cls_token=cls_token,
-            mask_token=mask_token)
+                 mask_token="[MASK]",
+                 **kwargs):
+        super(ErnieDocBPETokenizer,
+              self).__init__(vocab_file,
+                             encoder_json_path=encoder_json_path,
+                             vocab_bpe_path=vocab_bpe_path,
+                             unk_token=unk_token,
+                             sep_token=sep_token,
+                             pad_token=pad_token,
+                             cls_token=cls_token,
+                             mask_token=mask_token)
+
+    @property
+    def vocab_size(self):
+        """
+        Return the size of vocabulary.
+
+        Returns:
+            int: The size of vocabulary.
+        """
+        return len(self.vocab)

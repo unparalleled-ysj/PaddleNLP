@@ -44,6 +44,8 @@ Decoder 具有和 Encoder 类似的结构，只是相比于组成 Encoder 的 la
 
 安装命令：`pip install attrdict pyyaml`
 
+**注意：如果需要使用混合精度训练，需要使用基于 PaddlePaddle develop 分支编译的包。**
+
 ## 数据准备
 
 公开数据集：WMT 翻译大赛是机器翻译领域最具权威的国际评测大赛，其中英德翻译任务提供了一个中等规模的数据集，这个数据集是较多论文中使用的数据集，也是 Transformer 论文中用到的一个数据集。我们也将[WMT'14 EN-DE 数据集](http://www.statmt.org/wmt14/translation-task.html)作为示例提供。
@@ -199,10 +201,10 @@ BLEU = 27.48, 58.6/33.2/21.1/13.9 (BP=1.000, ratio=1.012, hyp_len=65312, ref_len
 
 ## FAQ
 
-**Q:** 预测结果中样本数少于输入的样本数是什么原因  
+**Q:** 预测结果中样本数少于输入的样本数是什么原因
 **A:** 若样本中最大长度超过 `transformer.yaml` 中 `max_length` 的默认设置，请注意运行时增大 `--max_length` 的设置，否则超长样本将被过滤。
 
-**Q:** 预测时最大长度超过了训练时的最大长度怎么办  
+**Q:** 预测时最大长度超过了训练时的最大长度怎么办
 **A:** 由于训练时 `max_length` 的设置决定了保存模型 position encoding 的大小，若预测时长度超过 `max_length`，请调大该值，会重新生成更大的 position encoding 表。
 
 

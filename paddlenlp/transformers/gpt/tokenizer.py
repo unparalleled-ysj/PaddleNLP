@@ -19,11 +19,10 @@ from functools import lru_cache
 import json
 import jieba
 import shutil
+import sentencepiece as spm
 from paddle.utils import try_import
 
-from paddlenlp.utils.log import logger
-
-from .. import PretrainedTokenizer
+from .. import PretrainedTokenizer, AddedToken
 
 __all__ = [
     'GPTTokenizer',
@@ -43,8 +42,11 @@ def bytes_to_unicode():
     And avoids mapping to whitespace/control characters the bpe code barfs on.
     """
     _chr = chr
-    bs = list(range(ord("!"), ord("~") + 1)) + list(
-        range(ord("¡"), ord("¬") + 1)) + list(range(ord("®"), ord("ÿ") + 1))
+    bs = list(range(ord("!"),
+                    ord("~") + 1)) + list(range(
+                        ord("¡"),
+                        ord("¬") + 1)) + list(range(ord("®"),
+                                                    ord("ÿ") + 1))
     cs = bs[:]
     n = 0
     for b in range(2**8):
@@ -105,7 +107,7 @@ class GPTChineseTokenizer(PretrainedTokenizer):
         "model_file": "sentencepiece.model"
     }  # for save_pretrained
 
-    cpm_model_link = "https://paddlenlp.bj.bcebos.com/models/transformers/gpt/gpt-cpm-cn-sentencepiece.model"
+    cpm_model_link = "https://bj.bcebos.com/paddlenlp/models/transformers/gpt/gpt-cpm-cn-sentencepiece.model"
     pretrained_resource_files_map = {
         "model_file": {
             "gpt-cpm-large-cn": cpm_model_link,
@@ -124,9 +126,11 @@ class GPTChineseTokenizer(PretrainedTokenizer):
             unk_token='<unk>',
             bos_token='<bod>',
             eos_token='<eod>',
-            eol_token='\u2583',  # The token of newline.
+            eol_token='\u2583',
+            **kwargs  # The token of newline.
     ):
         self._model_file = model_file
+        self.eol_token = eol_token
         if not os.path.isfile(model_file):
             raise ValueError(
                 "Can't find a model file at path '{}'. To load the "
@@ -134,31 +138,15 @@ class GPTChineseTokenizer(PretrainedTokenizer):
                 "`tokenizer = GPTTokenizer.from_pretrained(PRETRAINED_MODEL_NAME)`"
                 .format(model_file))
         self.max_len = max_len if max_len is not None else int(1e12)
-        mod = try_import("sentencepiece")
-        self.sp = mod.SentencePieceProcessor(model_file=model_file)
+        self.sp = spm.SentencePieceProcessor()
+        self.sp.Load(model_file)
         self.translator = str.maketrans(" \n", "\u2582\u2583")
 
-    def tokenize(self, text):
-        """
-        Converts a string to a list of tokens.
-
-        Args:
-            text (str): The text to be tokenized.
-
-        Returns:
-            List[str]: A list of string representing converted tokens.
-
-        Example:
-            .. code-block::
-
-                from paddlenlp.transformers import GPTChineseTokenizer
-
-                tokenizer = GPTChineseTokenizer.from_pretrained('gpt-cpm-large-cn')
-                print(tokenizer.tokenize('欢迎使用百度飞桨！'))
-                # ['▁欢迎', '▁使用', '▁百度', '▁飞', '桨', '▁!']
-        """
-
-        return self._tokenize(text)
+    @property
+    def eol_token_id(self):
+        if self.eol_token is None:
+            return None
+        return self.convert_tokens_to_ids(self.eol_token)
 
     def _tokenize(self, text):
         """ Tokenize a string. """
@@ -176,6 +164,7 @@ class GPTChineseTokenizer(PretrainedTokenizer):
         """Converts an index (integer) to a token (str) using the vocab."""
         return self.sp.IdToPiece(index)
 
+    '''
     def convert_tokens_to_ids(self, tokens):
         """
         Converts a single token or a sequence of tokens to an index or a
@@ -202,6 +191,7 @@ class GPTChineseTokenizer(PretrainedTokenizer):
             return self._convert_token_to_id(tokens)
         else:
             return [self._convert_token_to_id(token) for token in tokens]
+    '''
 
     def convert_ids_to_tokens(self, ids):
         """
@@ -272,8 +262,8 @@ class GPTChineseTokenizer(PretrainedTokenizer):
         """
 
         text = self.sp.decode(ids)
-        text = text.replace(' ', '').replace('\u2582', ' ').replace('\u2583',
-                                                                    '\n')
+        text = text.replace(' ', '').replace('\u2582',
+                                             ' ').replace('\u2583', '\n')
         return text
 
     def save_resources(self, save_directory):
@@ -310,9 +300,6 @@ class GPTTokenizer(PretrainedTokenizer):
         max_len (int, optional):
             The maximum value of the input sequence length.
             Defaults to `None`.
-        special_tokens (list, optional):
-            A list of special tokens not in the vocabulary.
-            Defaults to `None`.
 
     Examples:
         .. code-block::
@@ -332,27 +319,39 @@ class GPTTokenizer(PretrainedTokenizer):
         "vocab_file": "vocab.json",
         "merges_file": "merges.txt"
     }  # for save_pretrained
-    gpt_vocab_link = "http://paddlenlp.bj.bcebos.com/models/transformers/gpt/gpt-en-vocab.json"
-    gpt_merges_link = "http://paddlenlp.bj.bcebos.com/models/transformers/gpt/gpt-en-merges.txt"
+    gpt_vocab_link = "http://bj.bcebos.com/paddlenlp/models/transformers/gpt/gpt-en-vocab.json"
+    gpt_merges_link = "http://bj.bcebos.com/paddlenlp/models/transformers/gpt/gpt-en-merges.txt"
     pretrained_resource_files_map = {
         "vocab_file": {
+            "gpt3-175B-en": gpt_vocab_link,
+            "gpt3-89B-en": gpt_vocab_link,
             "gpt3-13B-en": gpt_vocab_link,
             "gpt3-1.3B-en": gpt_vocab_link,
+            "gpt2-xl-en": gpt_vocab_link,
+            "gpt2-large-en": gpt_vocab_link,
             "gpt2-medium-en": gpt_vocab_link,
             "gpt2-en": gpt_vocab_link,
             "gpt2-small-en": gpt_vocab_link,
         },
         "merges_file": {
+            "gpt3-175B-en": gpt_merges_link,
+            "gpt3-89B-en": gpt_merges_link,
             "gpt3-13B-en": gpt_merges_link,
             "gpt3-1.3B-en": gpt_merges_link,
+            "gpt2-xl-en": gpt_merges_link,
+            "gpt2-large-en": gpt_merges_link,
             "gpt2-medium-en": gpt_merges_link,
             "gpt2-en": gpt_merges_link,
             "gpt2-small-en": gpt_merges_link,
         }
     }
     pretrained_init_configuration = {
+        "gpt3-175B-en": {},
+        "gpt3-89B-en": {},
         "gpt3-13B-en": {},
         "gpt3-1.3B-en": {},
+        "gpt2-xl-en": {},
+        "gpt2-large-en": {},
         "gpt2-medium-en": {},
         "gpt2-en": {},
         "gpt2-small-en": {},
@@ -364,18 +363,35 @@ class GPTTokenizer(PretrainedTokenizer):
             merges_file,
             errors='replace',
             max_len=None,
-            special_tokens=None,
             pad_token='<|endoftext|>',
             eos_token='<|endoftext|>',
-            eol_token='\u010a',  # The token of newline.
+            unk_token='<|endoftext|>',
+            eol_token='\u010a',
+            **kwargs  # The token of newline.
     ):
+        pad_token = AddedToken(pad_token,
+                               lstrip=False, rstrip=False) if isinstance(
+                                   pad_token, str) else pad_token
+        eos_token = AddedToken(eos_token,
+                               lstrip=False, rstrip=False) if isinstance(
+                                   eos_token, str) else eos_token
+        unk_token = AddedToken(unk_token,
+                               lstrip=False, rstrip=False) if isinstance(
+                                   unk_token, str) else unk_token
+        self.eol_token = eol_token
+        self._build_special_tokens_map_extended(bos_token=pad_token,
+                                                eos_token=eos_token,
+                                                unk_token=unk_token)
+
         self._vocab_file = vocab_file
         self._merges_file = merges_file
         self.max_len = max_len if max_len is not None else int(1e12)
         self.num_command_tokens = 2
         self.num_type_tokens = 2
 
-        self.encoder = json.load(open(vocab_file))
+        with open(vocab_file, 'r', encoding='utf-8') as f:
+            self.encoder = json.load(f)
+
         self.decoder = {v: k for k, v in self.encoder.items()}
 
         self.num_tokens = len(self.encoder)
@@ -383,7 +399,10 @@ class GPTTokenizer(PretrainedTokenizer):
         self.errors = errors  # how to handle errors in decoding
         self.byte_encoder = bytes_to_unicode()
         self.byte_decoder = {v: k for k, v in self.byte_encoder.items()}
-        bpe_data = open(merges_file, encoding='utf-8').read().split('\n')[1:-1]
+
+        with open(merges_file, encoding='utf-8') as f:
+            bpe_data = f.read().split('\n')[1:-1]
+
         bpe_merges = [tuple(merge.split()) for merge in bpe_data]
         self.bpe_ranks = dict(zip(bpe_merges, range(len(bpe_merges))))
         self.cache = {}
@@ -391,13 +410,6 @@ class GPTTokenizer(PretrainedTokenizer):
         self.pat = re.compile(
             r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
         )
-
-        self.special_tokens = {}
-        self.special_tokens_decoder = {}
-        self.set_special_tokens(special_tokens)
-
-    def __len__(self):
-        return len(self.encoder) + len(self.special_tokens)
 
     @property
     def vocab_size(self):
@@ -409,26 +421,13 @@ class GPTTokenizer(PretrainedTokenizer):
 
         """
 
-        return len(self.encoder) + len(self.special_tokens)
+        return len(self.encoder)
 
-    def set_special_tokens(self, special_tokens):
-        """
-        Add a list of additional tokens to the encoder.
-        The additional tokens are indexed starting from the last index of the
-        current vocabulary in the order of the `special_tokens` list.
-
-        """
-        if not special_tokens:
-            self.special_tokens = {}
-            self.special_tokens_decoder = {}
-            return
-        self.special_tokens = dict((tok, len(self.encoder) + i)
-                                   for i, tok in enumerate(special_tokens))
-        self.special_tokens_decoder = {
-            v: k
-            for k, v in self.special_tokens.items()
-        }
-        logger.info("Special tokens {}".format(self.special_tokens))
+    @property
+    def eol_token_id(self):
+        if self.eol_token is None:
+            return None
+        return self.convert_tokens_to_ids(self.eol_token)
 
     def bpe(self, token):
         if token in self.cache:
@@ -473,113 +472,22 @@ class GPTTokenizer(PretrainedTokenizer):
         self.cache[token] = word
         return word
 
-    def tokenize(self, text):
-        """
-        Converts a string to a list of tokens.
-
-        Args:
-            text (str): The text to be tokenized.
-
-        Returns:
-            List[str]: A list of string representing converted tokens.
-
-        Example:
-            .. code-block::
-
-                from paddlenlp.transformers import GPTTokenizer
-
-                tokenizer = GPTTokenizer.from_pretrained('gpt2-medium-en')
-                print(tokenizer.tokenize('Welcome to use PaddlePaddle and PaddleNLP'))
-                # ['Welcome', 'Ġto', 'Ġuse', 'ĠP', 'addle', 'P', 'addle', 'Ġand', 'ĠP', 'addle', 'N', 'LP']
-        """
-
-        return self._tokenize(text)
-
     def _tokenize(self, text):
         """ Tokenize a string. """
         bpe_tokens = []
         re = try_import("regex")
         for token in re.findall(self.pat, text):
             token = ''.join(self.byte_encoder[b] for b in token.encode('utf-8'))
-            bpe_tokens.extend(
-                bpe_token for bpe_token in self.bpe(token).split(' '))
+            bpe_tokens.extend(bpe_token
+                              for bpe_token in self.bpe(token).split(' '))
         return bpe_tokens
 
-    def convert_tokens_to_ids(self, tokens):
-        """
-        Converts a single token or a sequence of tokens to an index or a
-        sequence of indices using the vocab.
+    def _convert_token_to_id(self, token):
+        return self.encoder.get(token, self.encoder.get(self.unk_token))
 
-        Args:
-            tokens (str|List[str]|tuple(str)):
-                A single token or a sequence of tokens.
+    def _convert_id_to_token(self, index):
 
-        Returns:
-            int|List[int]: The converted token id or token ids.
-
-        Example:
-            .. code-block::
-
-                from paddlenlp.transformers import GPTTokenizer
-
-                tokenizer = GPTTokenizer.from_pretrained('gpt2-medium-en')
-                print(tokenizer.convert_tokens_to_ids(['Welcome', 'Ġto', 'Ġuse', 'ĠP', 'addle', 'P', 'addle', 'Ġand', 'ĠP', 'addle', 'N', 'LP']))
-                # [14618, 284, 779, 350, 37382, 47, 37382, 290, 350, 37382, 45, 19930]
-        """
-
-        ids = []
-        if isinstance(tokens, str):
-            if tokens in self.special_tokens:
-                return self.special_tokens[tokens]
-            else:
-                return self.encoder.get(tokens, 0)
-        for token in tokens:
-            if token in self.special_tokens:
-                ids.append(self.special_tokens[token])
-            else:
-                ids.append(self.encoder.get(token, 0))
-        if len(ids) > self.max_len:
-            logger.warning(
-                "Token indices sequence length is longer than the specified maximum "
-                " sequence length for this OpenAI GPT model ({} > {}). Running this"
-                " sequence through the model will result in indexing errors".
-                format(len(ids), self.max_len))
-        return ids
-
-    def convert_ids_to_tokens(self, ids, skip_special_tokens=False):
-        """
-        Converts an index or a sequence indices to a single
-        token or a sequence of tokens.
-
-        Args:
-            ids (int|List[int]):
-                The token id (or token ids) to be converted to text.
-            skip_special_tokens (bool, optional):
-                Whether or not to skip the special tokens.
-                Defaults to `False`, which means we don't skip the special tokens.
-
-        Returns:
-            str|List[str]: The converted token or the sequence of tokens.
-
-        Example:
-            .. code-block::
-
-                from paddlenlp.transformers import GPTTokenizer
-
-                tokenizer = GPTTokenizer.from_pretrained('gpt2-medium-en')
-                print(tokenizer.convert_ids_to_tokens([14618, 284, 779, 350, 37382, 47, 37382, 290, 350, 37382, 45, 19930]))
-                # ['Welcome', 'Ġto', 'Ġuse', 'ĠP', 'addle', 'P', 'addle', 'Ġand', 'ĠP', 'addle', 'N', 'LP']
-
-        """
-
-        tokens = []
-        for i in ids:
-            if i in self.special_tokens_decoder:
-                if not skip_special_tokens:
-                    tokens.append(self.special_tokens_decoder[i])
-            else:
-                tokens.append(self.decoder[i])
-        return tokens
+        return self.decoder[index]
 
     def convert_ids_to_string(self, ids):
         """
@@ -603,8 +511,8 @@ class GPTTokenizer(PretrainedTokenizer):
         """
 
         text = ''.join([self.decoder[id] for id in ids])
-        text = bytearray([self.byte_decoder[c] for c in text]).decode(
-            'utf-8', errors=self.errors)
+        text = bytearray([self.byte_decoder[c]
+                          for c in text]).decode('utf-8', errors=self.errors)
         return text
 
     def save_resources(self, save_directory):
@@ -616,5 +524,17 @@ class GPTTokenizer(PretrainedTokenizer):
             save_directory (str): Directory to save files into.
         """
         for name, file_name in self.resource_files_names.items():
+            source_path = getattr(self, "_%s" % name)
+
             save_path = os.path.join(save_directory, file_name)
-            shutil.copyfile(getattr(self, "_%s" % name), save_path)
+            if os.path.abspath(source_path) != os.path.abspath(save_path):
+                shutil.copyfile(source_path, save_path)
+
+    def convert_tokens_to_string(self, tokens):
+        """
+        Converts a sequence of tokens (string) in a single string.
+        """
+        text = "".join(tokens)
+        text = bytearray([self.byte_decoder[c]
+                          for c in text]).decode('utf-8', errors=self.errors)
+        return text

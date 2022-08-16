@@ -105,27 +105,23 @@ class FasterErniePretrainedModel(FasterPretrainedModel):
     pretrained_resource_files_map = {
         "model_state": {
             "ernie-1.0":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/ernie/ernie_v1_chn_base.pdparams",
-            "ernie-tiny":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/ernie_tiny/ernie_tiny.pdparams",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/faster_ernie/faster_ernie_v1_chn_base.pdparams",
             "ernie-2.0-en":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/ernie_v2_base/ernie_v2_eng_base.pdparams",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/faster_ernie_v2_base/faster_ernie_v2_eng_base.pdparams",
             "ernie-2.0-en-finetuned-squad":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/ernie_v2_base/ernie_v2_eng_base_finetuned_squad.pdparams",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/faster_ernie_v2_base/faster_ernie_v2_eng_base_finetuned_squad.pdparams",
             "ernie-2.0-large-en":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/ernie_v2_large/ernie_v2_eng_large.pdparams",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/faster_ernie_v2_large/faster_ernie_v2_eng_large.pdparams",
         },
         "vocab_file": {
             "ernie-1.0":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/ernie/vocab.txt",
-            "ernie-tiny":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/ernie_tiny/vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/ernie/vocab.txt",
             "ernie-2.0-en":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/ernie_v2_base/vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/ernie_v2_base/vocab.txt",
             "ernie-2.0-en-finetuned-squad":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/ernie_v2_base/vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/ernie_v2_base/vocab.txt",
             "ernie-2.0-large-en":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/ernie_v2_large/vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/ernie_v2_large/vocab.txt",
         }
     }
     base_model_prefix = "ernie"
@@ -137,12 +133,11 @@ class FasterErniePretrainedModel(FasterPretrainedModel):
             # and configurable later
             if isinstance(layer.weight, paddle.Tensor):
                 layer.weight.set_value(
-                    paddle.tensor.normal(
-                        mean=0.0,
-                        std=self.initializer_range
-                        if hasattr(self, "initializer_range") else
-                        self.ernie.config["initializer_range"],
-                        shape=layer.weight.shape))
+                    paddle.tensor.normal(mean=0.0,
+                                         std=self.initializer_range if hasattr(
+                                             self, "initializer_range") else
+                                         self.ernie.config["initializer_range"],
+                                         shape=layer.weight.shape))
         elif isinstance(layer, nn.LayerNorm):
             layer._epsilon = 1e-12
 
@@ -206,23 +201,24 @@ class FasterErnieModel(FasterErniePretrainedModel):
     """
 
     def __init__(
-            self,
-            vocab_size,
-            vocab_file,
-            hidden_size=768,
-            num_hidden_layers=12,
-            num_attention_heads=12,
-            intermediate_size=3072,
-            hidden_act="gelu",
-            hidden_dropout_prob=0.1,
-            attention_probs_dropout_prob=0.1,
-            max_position_embeddings=512,
-            type_vocab_size=2,
-            initializer_range=0.02,
-            pad_token_id=0,
-            do_lower_case=True,
-            is_split_into_words=False,
-            max_seq_len=512, ):
+        self,
+        vocab_size,
+        vocab_file,
+        hidden_size=768,
+        num_hidden_layers=12,
+        num_attention_heads=12,
+        intermediate_size=3072,
+        hidden_act="gelu",
+        hidden_dropout_prob=0.1,
+        attention_probs_dropout_prob=0.1,
+        max_position_embeddings=512,
+        type_vocab_size=2,
+        initializer_range=0.02,
+        pad_token_id=0,
+        do_lower_case=True,
+        is_split_into_words=False,
+        max_seq_len=512,
+    ):
         super(FasterErnieModel, self).__init__()
         if not os.path.isfile(vocab_file):
             raise ValueError(
@@ -242,32 +238,41 @@ class FasterErnieModel(FasterErniePretrainedModel):
         self.initializer_range = initializer_range
         weight_attr = paddle.ParamAttr(initializer=nn.initializer.Normal(
             mean=0.0, std=self.initializer_range))
-        self.embeddings = ErnieEmbeddings(
-            vocab_size, hidden_size, hidden_dropout_prob,
-            max_position_embeddings, type_vocab_size, pad_token_id, weight_attr)
-        encoder_layer = nn.TransformerEncoderLayer(
+        self.embeddings = ErnieEmbeddings(vocab_size, hidden_size,
+                                          hidden_dropout_prob,
+                                          max_position_embeddings,
+                                          type_vocab_size, pad_token_id,
+                                          weight_attr)
+        # Avoid import error in global scope when using paddle <= 2.2.0, therefore
+        # import FusedTransformerEncoderLayer in local scope.
+        # FusedTransformerEncoderLayer is supported by paddlepaddle since 2.2.0, please
+        # ensure the version >= 2.2.0
+        from paddle.incubate.nn import FusedTransformerEncoderLayer
+        encoder_layer = FusedTransformerEncoderLayer(
             hidden_size,
             num_attention_heads,
             intermediate_size,
-            dropout=hidden_dropout_prob,
+            dropout_rate=hidden_dropout_prob,
             activation=hidden_act,
-            attn_dropout=attention_probs_dropout_prob,
-            act_dropout=0,
-            weight_attr=weight_attr, )
+            attn_dropout_rate=attention_probs_dropout_prob,
+            act_dropout_rate=0,
+            weight_attr=weight_attr,
+        )
         self.encoder = nn.TransformerEncoder(encoder_layer, num_hidden_layers)
         self.pooler = ErniePooler(hidden_size, weight_attr)
         self.apply(self.init_weights)
 
     def forward(self, text, text_pair=None):
-        input_ids, token_type_ids = self.tokenizer(
-            text=text, text_pair=text_pair, max_seq_len=self.max_seq_len)
+        input_ids, token_type_ids = self.tokenizer(text=text,
+                                                   text_pair=text_pair,
+                                                   max_seq_len=self.max_seq_len)
 
         attention_mask = paddle.unsqueeze(
-            (input_ids == self.pad_token_id
-             ).astype(self.pooler.dense.weight.dtype) * -1e9,
+            (input_ids == self.pad_token_id).astype(
+                self.pooler.dense.weight.dtype) * -1e4,
             axis=[1, 2])
-        embedding_output = self.embeddings(
-            input_ids=input_ids, token_type_ids=token_type_ids)
+        embedding_output = self.embeddings(input_ids=input_ids,
+                                           token_type_ids=token_type_ids)
         encoder_outputs = self.encoder(embedding_output, attention_mask)
         sequence_output = encoder_outputs
         pooled_output = self.pooler(sequence_output)
@@ -275,12 +280,13 @@ class FasterErnieModel(FasterErniePretrainedModel):
 
 
 class FasterErnieForSequenceClassification(FasterErniePretrainedModel):
+
     def __init__(self, ernie, num_classes=2, dropout=None):
         super(FasterErnieForSequenceClassification, self).__init__()
         self.num_classes = num_classes
         self.ernie = ernie  # allow ernie to be config
-        self.dropout = nn.Dropout(dropout if dropout is not None else
-                                  self.ernie.config["hidden_dropout_prob"])
+        self.dropout = nn.Dropout(dropout if dropout is not None else self.
+                                  ernie.config["hidden_dropout_prob"])
         self.classifier = nn.Linear(self.ernie.config["hidden_size"],
                                     num_classes)
         self.apply(self.init_weights)
@@ -296,12 +302,13 @@ class FasterErnieForSequenceClassification(FasterErniePretrainedModel):
 
 
 class FasterErnieForTokenClassification(FasterErniePretrainedModel):
+
     def __init__(self, ernie, num_classes=2, dropout=None):
         super(FasterErnieForTokenClassification, self).__init__()
         self.num_classes = num_classes
         self.ernie = ernie  # allow ernie to be config
-        self.dropout = nn.Dropout(dropout if dropout is not None else
-                                  self.ernie.config["hidden_dropout_prob"])
+        self.dropout = nn.Dropout(dropout if dropout is not None else self.
+                                  ernie.config["hidden_dropout_prob"])
         self.classifier = nn.Linear(self.ernie.config["hidden_size"],
                                     num_classes)
         self.apply(self.init_weights)

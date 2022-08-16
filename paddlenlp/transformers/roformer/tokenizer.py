@@ -117,27 +117,27 @@ class RoFormerTokenizer(PretrainedTokenizer):
         "vocab_file": {
             # chinese word level model
             "roformer-chinese-small":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/roformer/roformer-chinese-small/vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/roformer/roformer-chinese-small/vocab.txt",
             "roformer-chinese-base":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/roformer/roformer-chinese-base/vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/roformer/roformer-chinese-base/vocab.txt",
             # chinese char level model
             "roformer-chinese-char-small":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/roformer/roformer-chinese-char-small/vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/roformer/roformer-chinese-char-small/vocab.txt",
             "roformer-chinese-char-base":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/roformer/roformer-chinese-char-base/vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/roformer/roformer-chinese-char-base/vocab.txt",
             "roformer-chinese-sim-char-ft-small":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/roformer/roformer-chinese-sim-char-ft-small/vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/roformer/roformer-chinese-sim-char-ft-small/vocab.txt",
             "roformer-chinese-sim-char-ft-base":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/roformer/roformer-chinese-sim-char-ft-base/vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/roformer/roformer-chinese-sim-char-ft-base/vocab.txt",
             "roformer-chinese-sim-char-small":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/roformer/roformer-chinese-sim-char-small/vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/roformer/roformer-chinese-sim-char-small/vocab.txt",
             "roformer-chinese-sim-char-base":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/roformer/roformer-chinese-sim-char-base/vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/roformer/roformer-chinese-sim-char-base/vocab.txt",
             # english
             "roformer-english-small-discriminator":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/roformer/roformer-english-small-discriminator/vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/roformer/roformer-english-small-discriminator/vocab.txt",
             "roformer-english-small-generator":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/roformer/roformer-english-small-generator/vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/roformer/roformer-english-small-generator/vocab.txt",
         }
     }
     pretrained_init_configuration = {
@@ -184,16 +184,16 @@ class RoFormerTokenizer(PretrainedTokenizer):
     }
     padding_side = "right"
 
-    def __init__(
-            self,
-            vocab_file,
-            do_lower_case=True,
-            use_jieba=False,
-            unk_token="[UNK]",
-            sep_token="[SEP]",
-            pad_token="[PAD]",
-            cls_token="[CLS]",
-            mask_token="[MASK]", ):
+    def __init__(self,
+                 vocab_file,
+                 do_lower_case=True,
+                 use_jieba=False,
+                 unk_token="[UNK]",
+                 sep_token="[SEP]",
+                 pad_token="[PAD]",
+                 cls_token="[CLS]",
+                 mask_token="[MASK]",
+                 **kwargs):
 
         if not os.path.isfile(vocab_file):
             raise ValueError(
@@ -207,8 +207,8 @@ class RoFormerTokenizer(PretrainedTokenizer):
                 vocab=self.vocab, do_lower_case=do_lower_case)
         else:
             self.basic_tokenizer = BasicTokenizer(do_lower_case=do_lower_case)
-        self.wordpiece_tokenizer = WordpieceTokenizer(
-            vocab=self.vocab, unk_token=unk_token)
+        self.wordpiece_tokenizer = WordpieceTokenizer(vocab=self.vocab,
+                                                      unk_token=unk_token)
 
     @property
     def vocab_size(self):
@@ -235,28 +235,6 @@ class RoFormerTokenizer(PretrainedTokenizer):
                 split_tokens.append(sub_token)
 
         return split_tokens
-
-    def tokenize(self, text):
-        """
-        Converts a string to a list of tokens.
-
-        Args:
-            text (str): The text to be tokenized.
-
-        Returns:
-            List(str): A list of string representing converted tokens.
-
-        Examples:
-            .. code-block::
-
-                from paddlenlp.transformers import RoFormerTokenizer
-
-                tokenizer = RoFormerTokenizer.from_pretrained('roformer-chinese-base')
-                tokens = tokenizer.tokenize('欢迎使用百度飞桨')
-                #['欢迎', '使用', '百度', '飞', '桨']
-
-        """
-        return self._tokenize(text)
 
     def convert_tokens_to_string(self, tokens):
         """
@@ -298,8 +276,8 @@ class RoFormerTokenizer(PretrainedTokenizer):
         token_ids_0 = []
         token_ids_1 = []
         return len(
-            self.build_inputs_with_special_tokens(token_ids_0, token_ids_1
-                                                  if pair else None))
+            self.build_inputs_with_special_tokens(
+                token_ids_0, token_ids_1 if pair else None))
 
     def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
         """
@@ -410,8 +388,10 @@ class RoFormerTokenizer(PretrainedTokenizer):
                 )
             return list(
                 map(
-                    lambda x: 1 if x in [self.sep_token_id, self.cls_token_id] else 0,
-                    token_ids_0, ))
+                    lambda x: 1
+                    if x in [self.sep_token_id, self.cls_token_id] else 0,
+                    token_ids_0,
+                ))
 
         if token_ids_1 is not None:
             return [1] + ([0] * len(token_ids_0)) + [1] + (

@@ -4,7 +4,7 @@
 
 词法分析任务的输入是一个字符串（我们后面使用『句子』来指代它），而输出是句子中的词边界和词性、实体类别。序列标注是词法分析的经典建模方式，我们使用基于 GRU 的网络结构学习特征，将学习到的特征接入 CRF 解码层完成序列标注。模型结构如下所示：<br />
 
-![GRU-CRF-MODEL](https://paddlenlp.bj.bcebos.com/imgs/gru-crf-model.png)
+![GRU-CRF-MODEL](https://bj.bcebos.com/paddlenlp/imgs/gru-crf-model.png)
 
 1. 输入采用 one-hot 方式表示，每个字以一个 id 表示
 2. one-hot 序列通过字表，转换为实向量表示的字向量序列；
@@ -19,7 +19,7 @@
 我们提供了少数样本用以示例输入数据格式。执行以下命令，下载并解压示例数据集：
 
 ```bash
-python download.py --data_dir ./  
+python download.py --data_dir ./
 ```
 
 训练使用的数据可以由用户根据实际的应用场景，自己组织数据。除了第一行是 `text_a\tlabel` 固定的开头，后面的每行数据都是由两列组成，以制表符分隔，第一列是 utf-8 编码的中文文本，以 `\002` 分割，第二列是对应每个字的标注，以 `\002` 分隔。我们采用 IOB2 标注体系，即以 X-B 作为类型为 X 的词的开始，以 X-I 作为类型为 X 的词的持续，以 O 表示不关注的字（实际上，在词性、专名联合标注中，不存在 O ）。示例如下：
@@ -150,6 +150,31 @@ lac(["LAC是个优秀的分词工具", "三亚是一个美丽的城市"])
 ]
 '''
 ```
+
+任务的默认路径为`$HOME/.paddlenlp/taskflow/lexical_analysis/lac/`，默认路径下包含了执行该任务需要的所有文件。
+
+如果希望得到定制化的分词及标注结果，用户也可以通过Taskflow来加载自定义的词法分析模型并进行预测。
+
+通过`task_path`指定用户自定义路径，自定义路径下的文件需要和默认路径的文件一致。
+
+自定义路径包含如下文件（用户自己的模型权重、标签字典）：
+```text
+custom_task_path/
+├── model.pdparams
+├── word.dic
+├── tag.dic
+└── q2b.dic
+```
+
+使用Taskflow加载自定义模型进行一键预测：
+
+```python
+from paddlenlp import Taskflow
+
+my_lac = Taskflow("lexical_analysis", model_path="./custom_task_path/")
+```
+
+更多使用方法请参考[Taskflow文档](../../docs/model_zoo/taskflow.md)。
 
 ## 预训练模型
 

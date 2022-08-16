@@ -7,8 +7,8 @@
 
 | 模型  | dev acc |
 | ---- | ------- |
-| [ERNIE-1.0-Base](https://paddlenlp.bj.bcebos.com/models/text_matching/ernie1.0_zh_pointwise_matching_model.tar)  | 89.43 |
-| [ERNIE-Gram-Base](https://paddlenlp.bj.bcebos.com/models/text_matching/ernie_gram_zh_pointwise_matching_model.tar)  | 90.60 |
+| [ERNIE-1.0-Base](https://bj.bcebos.com/paddlenlp/models/text_matching/ernie1.0_zh_pointwise_matching_model.tar)  | 89.43 |
+| [ERNIE-Gram-Base](https://bj.bcebos.com/paddlenlp/models/text_matching/ernie_gram_zh_pointwise_matching_model.tar)  | 90.60 |
 
 ## 快速开始
 
@@ -61,45 +61,49 @@ python -u -m paddle.distributed.launch --gpus "0" train_pointwise.py \
 
 ```python
 
+# 使用 ERNIE-3.0-medium-zh 预训练模型
+model = AutoModel.from_pretrained('ernie-3.0-medium-zh')
+tokenizer = AutoTokenizer.from_pretrained('ernie-3.0-medium-zh')
+
 # 使用 ERNIE-Gram 预训练模型
-model = ppnlp.transformers.ErnieGramModel.from_pretrained('ernie-gram-zh')
-tokenizer = ppnlp.transformers.ErnieGramTokenizer.from_pretrained('ernie-gram-zh')
+model = AutoModel.from_pretrained('ernie-gram-zh')
+tokenizer = AutoTokenizer.from_pretrained('ernie-gram-zh')
 
 # 使用 ERNIE 预训练模型
 # ernie-1.0
-#model = ppnlp.transformers.ErnieModel.from_pretrained('ernie-1.0'))
-#tokenizer = ppnlp.transformers.ErnieTokenizer.from_pretrained('ernie-1.0')
+#model = AutoModel.from_pretrained('ernie-1.0-base-zh'))
+#tokenizer = AutoTokenizer.from_pretrained('ernie-1.0-base-zh')
 
 # ernie-tiny
-# model = ppnlp.transformers.ErnieModel.from_pretrained('ernie-tiny'))
-# tokenizer = ppnlp.transformers.ErnieTinyTokenizer.from_pretrained('ernie-tiny')
+# model = AutoModel.from_pretrained('ernie-tiny'))
+# tokenizer = AutoTokenizer.from_pretrained('ernie-tiny')
 
 
 # 使用 BERT 预训练模型
 # bert-base-chinese
-# model = ppnlp.transformers.BertModel.from_pretrained('bert-base-chinese')
-# tokenizer = ppnlp.transformers.BertTokenizer.from_pretrained('bert-base-chinese')
+# model = AutoModel.from_pretrained('bert-base-chinese')
+# tokenizer = AutoTokenizer.from_pretrained('bert-base-chinese')
 
 # bert-wwm-chinese
-# model = ppnlp.transformers.BertModel.from_pretrained('bert-wwm-chinese')
-# tokenizer = ppnlp.transformers.BertTokenizer.from_pretrained('bert-wwm-chinese')
+# model = AutoModel.from_pretrained('bert-wwm-chinese')
+# tokenizer = AutoTokenizer.from_pretrained('bert-wwm-chinese')
 
 # bert-wwm-ext-chinese
-# model = ppnlp.transformers.BertModel.from_pretrained('bert-wwm-ext-chinese')
-# tokenizer = ppnlp.transformers.BertTokenizer.from_pretrained('bert-wwm-ext-chinese')
+# model = AutoModel.from_pretrained('bert-wwm-ext-chinese')
+# tokenizer = AutoTokenizer.from_pretrained('bert-wwm-ext-chinese')
 
 
 # 使用 RoBERTa 预训练模型
 # roberta-wwm-ext
-# model = ppnlp.transformers.RobertaModel.from_pretrained('roberta-wwm-ext')
-# tokenizer = ppnlp.transformers.RobertaTokenizer.from_pretrained('roberta-wwm-ext')
+# model = AutoModel.from_pretrained('roberta-wwm-ext')
+# tokenizer = AutoTokenizer.from_pretrained('roberta-wwm-ext')
 
 # roberta-wwm-ext
-# model = ppnlp.transformers.RobertaModel.from_pretrained('roberta-wwm-ext-large')
-# tokenizer = ppnlp.transformers.RobertaTokenizer.from_pretrained('roberta-wwm-ext-large')
+# model = AutoModel.from_pretrained('roberta-wwm-ext-large')
+# tokenizer = AutoTokenizer.from_pretrained('roberta-wwm-ext-large')
 
 ```
-更多预训练模型，参考[transformers](../../../docs/model_zoo/transformers.rst)
+更多预训练模型，参考[transformers](https://paddlenlp.readthedocs.io/zh/latest/model_zoo/index.html#transformer)
 
 程序运行时将会自动进行训练，评估。同时训练过程中会自动保存模型在指定的`save_dir`中。
 如：
@@ -153,14 +157,18 @@ python -u -m paddle.distributed.launch --gpus "0" \
 #### 模型导出
 使用动态图训练结束之后，可以使用静态图导出工具 `export_model.py` 将动态图参数导出成静态图参数。 执行如下命令：
 
-`python export_model.py --params_path ernie_ckpt/model_80.pdparams --output_path=./output`
+```shell
+python export_model.py --params_path checkpoints/model_300/model_state.pdparams --output_path=./output
+```
 
 其中`params_path`是指动态图训练保存的参数路径，`output_path`是指静态图参数导出路径。
 
 #### 预测部署
 导出静态图模型之后，可以基于静态图模型进行预测，`deploy/python/predict.py` 文件提供了静态图预测示例。执行如下命令：
 
-`python deploy/python/predict.py --model_dir ./output`
+```shell
+python deploy/python/predict.py --model_dir ./output
+```
 
 ## Reference
 [1] Xin Liu, Qingcai Chen, Chong Deng, Huajun Zeng, Jing Chen, Dongfang Li, Buzhou Tang, LCQMC: A Large-scale Chinese Question Matching Corpus,COLING2018.

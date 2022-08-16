@@ -42,21 +42,21 @@ class NLPCC13EVSAM05THU(DatasetBuilder):
         '''
     """
 
-    URL = 'https://paddlenlp.bj.bcebos.com/datasets/nlpcc13_evsam05_thu.tar.gz'
+    URL = 'https://bj.bcebos.com/paddlenlp/datasets/nlpcc13_evsam05_thu.tar.gz'
     MD5 = '297ad22217ba4668d49580009810446e'
     META_INFO = collections.namedtuple('META_INFO', ('file', 'md5'))
     SPLITS = {
-        'train': META_INFO(
-            os.path.join('nlpcc13_evsam05_thu', 'train.conll'),
-            'c7779f981203b4ecbe5b04c65aaaffce'),
-        'dev': META_INFO(
-            os.path.join('nlpcc13_evsam05_thu', 'dev.conll'),
-            '59c2de72c7be39977f766e8290336dac'),
-        'test': META_INFO(
-            os.path.join('nlpcc13_evsam05_thu', 'test.conll'),
-            '873223b42060ce16a7e24545e43a933f'),
+        'train':
+        META_INFO(os.path.join('nlpcc13_evsam05_thu', 'train.conll'),
+                  'c7779f981203b4ecbe5b04c65aaaffce'),
+        'dev':
+        META_INFO(os.path.join('nlpcc13_evsam05_thu', 'dev.conll'),
+                  '59c2de72c7be39977f766e8290336dac'),
+        'test':
+        META_INFO(os.path.join('nlpcc13_evsam05_thu', 'test.conll'),
+                  '873223b42060ce16a7e24545e43a933f'),
     }
-    
+
     def _get_data(self, mode, **kwargs):
         """Downloads dataset."""
         default_root = os.path.join(DATA_HOME, self.__class__.__name__)
@@ -74,7 +74,8 @@ class NLPCC13EVSAM05THU(DatasetBuilder):
             lines = []
             for line in f.readlines():
                 if not line.startswith(" "):
-                    if not line.startswith('#') and (len(line) == 1 or line.split()[0].isdigit()):
+                    if not line.startswith('#') and (len(line) == 1 or
+                                                     line.split()[0].isdigit()):
                         lines.append(line.strip())
                 else:
                     lines.append("")
@@ -89,10 +90,10 @@ class NLPCC13EVSAM05THU(DatasetBuilder):
                         "ID": ID,
                         "FORM": FORM,
                         "LEMMA": LEMMA,
-                        "CPOS": CPOS, 
+                        "CPOS": CPOS,
                         "POS": POS,
                         "FEATS": FEATS,
-                        "HEAD": HEAD, 
+                        "HEAD": HEAD,
                         "DEPREL": DEPREL,
-                    }  
-                start = i + 1                
+                    }
+                start = i + 1

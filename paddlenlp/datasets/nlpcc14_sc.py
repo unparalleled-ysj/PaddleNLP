@@ -39,16 +39,16 @@ class NLPCC14SC(DatasetBuilder):
     data in META_INFO. By Fiyen at Beijing Jiaotong University.
     """
 
-    URL = "https://dataset-bj.cdn.bcebos.com/qianyan/NLPCC14-SC.zip"
+    URL = "https://bj.bcebos.com/paddlenlp/datasets/NLPCC14-SC.zip"
     MD5 = "4792a0982bc64b83d9a76dcce8bc00ad"
     META_INFO = collections.namedtuple('META_INFO', ('file', 'md5'))
     SPLITS = {
-        'train': META_INFO(
-            os.path.join('NLPCC14-SC', 'NLPCC14-SC', 'train.tsv'),
-            'b0c6f74bb8d41020067c8f103c6e08c0'),
-        'test': META_INFO(
-            os.path.join('NLPCC14-SC', 'NLPCC14-SC', 'test.tsv'),
-            '57526ba07510fdc901777e7602a26774'),
+        'train':
+        META_INFO(os.path.join('NLPCC14-SC', 'NLPCC14-SC', 'train.tsv'),
+                  'b0c6f74bb8d41020067c8f103c6e08c0'),
+        'test':
+        META_INFO(os.path.join('NLPCC14-SC', 'NLPCC14-SC', 'test.tsv'),
+                  '57526ba07510fdc901777e7602a26774'),
     }
 
     def _get_data(self, mode, **kwargs):

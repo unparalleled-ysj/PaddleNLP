@@ -44,19 +44,19 @@ class NLPCC13EVSAM05HIT(DatasetBuilder):
         '''
     """
 
-    URL = 'https://paddlenlp.bj.bcebos.com/datasets/nlpcc13_evsam05_hit.tar.gz'
+    URL = 'https://bj.bcebos.com/paddlenlp/datasets/nlpcc13_evsam05_hit.tar.gz'
     MD5 = '5988ede79690dc87aa6e4343b5299944'
     META_INFO = collections.namedtuple('META_INFO', ('file', 'md5'))
     SPLITS = {
-        'train': META_INFO(
-            os.path.join('nlpcc13_evsam05_hit', 'train.conll'),
-            'd82e667950a5e22b18baf595b9feb30f'),
-        'dev': META_INFO(
-            os.path.join('nlpcc13_evsam05_hit', 'dev.conll'),
-            'b71b08dc85e652769bfbda30b1e352a9'),
-        'test': META_INFO(
-            os.path.join('nlpcc13_evsam05_hit', 'test.conll'),
-            '784fb9d966a286df5370f7eee4013cf0'),
+        'train':
+        META_INFO(os.path.join('nlpcc13_evsam05_hit', 'train.conll'),
+                  'd82e667950a5e22b18baf595b9feb30f'),
+        'dev':
+        META_INFO(os.path.join('nlpcc13_evsam05_hit', 'dev.conll'),
+                  'b71b08dc85e652769bfbda30b1e352a9'),
+        'test':
+        META_INFO(os.path.join('nlpcc13_evsam05_hit', 'test.conll'),
+                  '784fb9d966a286df5370f7eee4013cf0'),
     }
 
     def _get_data(self, mode, **kwargs):
@@ -76,7 +76,8 @@ class NLPCC13EVSAM05HIT(DatasetBuilder):
             lines = []
             for line in f.readlines():
                 if not line.startswith(" "):
-                    if not line.startswith('#') and (len(line) == 1 or line.split()[0].isdigit()):
+                    if not line.startswith('#') and (len(line) == 1 or
+                                                     line.split()[0].isdigit()):
                         lines.append(line.strip())
                 else:
                     lines.append("")
@@ -93,12 +94,10 @@ class NLPCC13EVSAM05HIT(DatasetBuilder):
                         "ID": ID,
                         "FORM": FORM,
                         "LEMMA": LEMMA,
-                        "CPOS": CPOS, 
+                        "CPOS": CPOS,
                         "POS": POS,
                         "FEATS": FEATS,
-                        "HEAD": HEAD, 
+                        "HEAD": HEAD,
                         "DEPREL": DEPREL,
                     }
                 start = i + 1
-
-        

@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .. import GPTTokenizer
+from .. import GPTTokenizer, AddedToken
 from paddle.utils import try_import
 
 __all__ = ['BlenderbotTokenizer']
@@ -61,19 +61,19 @@ class BlenderbotTokenizer(GPTTokenizer):
     pretrained_resource_files_map = {
         "vocab_file": {
             "blenderbot-400M-distill":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/blenderbot/blenderbot-400M-distill-vocab.json",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/blenderbot/blenderbot-400M-distill-vocab.json",
             "blenderbot-3B":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/blenderbot/blenderbot-3B-vocab.json",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/blenderbot/blenderbot-3B-vocab.json",
             "blenderbot-1B-distill":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/blenderbot/blenderbot-1B-distill-vocab.json"
+            "https://bj.bcebos.com/paddlenlp/models/transformers/blenderbot/blenderbot-1B-distill-vocab.json"
         },
         "merges_file": {
             "blenderbot-400M-distill":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/blenderbot/blenderbot-400M-distill-merges.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/blenderbot/blenderbot-400M-distill-merges.txt",
             "blenderbot-3B":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/blenderbot/blenderbot-3B-merges.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/blenderbot/blenderbot-3B-merges.txt",
             "blenderbot-1B-distill":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/blenderbot/blenderbot-1B-distill-merges.txt"
+            "https://bj.bcebos.com/paddlenlp/models/transformers/blenderbot/blenderbot-1B-distill-merges.txt"
         }
     }
     pretrained_init_configuration = {
@@ -88,29 +88,40 @@ class BlenderbotTokenizer(GPTTokenizer):
         }
     }
 
-    def __init__(
-            self,
-            vocab_file,
-            merges_file,
-            errors='replace',
-            max_len=None,
-            special_tokens=None,
-            bos_token="<s>",
-            eos_token="</s>",
-            cls_token="<s>",
-            sep_token="</s>",
-            pad_token="<pad>",
-            eol_token='\u010a',
-            add_prefix=True, ):
-        super(BlenderbotTokenizer, self).__init__(
-            vocab_file=vocab_file,
-            merges_file=merges_file,
-            errors=errors,
-            max_len=max_len,
-            special_tokens=special_tokens,
-            pad_token=pad_token,
-            eos_token=eos_token,
-            eol_token=eol_token)
+    def __init__(self,
+                 vocab_file,
+                 merges_file,
+                 errors='replace',
+                 max_len=None,
+                 special_tokens=None,
+                 bos_token="<s>",
+                 eos_token="</s>",
+                 cls_token="<s>",
+                 sep_token="</s>",
+                 pad_token="<pad>",
+                 unk_token="<unk>",
+                 mask_token="<mask>",
+                 eol_token='\u010a',
+                 add_prefix=True,
+                 **kwargs):
+
+        sep_token = AddedToken(sep_token,
+                               lstrip=False,
+                               rstrip=False,
+                               single_word=False,
+                               normalized=True) if isinstance(
+                                   sep_token, str) else sep_token
+
+        self._build_special_tokens_map_extended(sep_token=sep_token)
+
+        super(BlenderbotTokenizer, self).__init__(vocab_file=vocab_file,
+                                                  merges_file=merges_file,
+                                                  errors=errors,
+                                                  max_len=max_len,
+                                                  special_tokens=special_tokens,
+                                                  pad_token=pad_token,
+                                                  eos_token=eos_token,
+                                                  eol_token=eol_token)
         self.add_prefix = add_prefix
 
     def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
@@ -139,16 +150,19 @@ class BlenderbotTokenizer(GPTTokenizer):
         Returns:
             list: A list of string representing converted tokens.
         """
-        if self.add_prefix:
-            text = " " + text
         bpe_tokens = []
         re = try_import("regex")
         for token in re.findall(self.pat, text):
             token = ''.join(self.byte_encoder[b] for b in token.encode('utf-8'))
-            bpe_tokens.extend(
-                bpe_token for bpe_token in self.bpe(token).split(' '))
+            bpe_tokens.extend(bpe_token
+                              for bpe_token in self.bpe(token).split(' '))
         return bpe_tokens
 
-    def tokenize(self, text):
-        """ End-to-end tokenization for Blenderbot models. """
-        return self._tokenize(text)
+    def prepare_for_tokenization(self,
+                                 text,
+                                 is_split_into_words=False,
+                                 **kwargs):
+        add_prefix = kwargs.pop("add_prefix", self.add_prefix)
+        if is_split_into_words or add_prefix:
+            text = " " + text
+        return text

@@ -68,6 +68,8 @@ class POSTaggingTask(LacTask):
                 for index in preds[sent_index][:lengths[sent_index]]
             ]
             sent = sents[sent_index]
+            if self._custom:
+                self._custom.parse_customization(sent, tags)
             sent_out = []
             tags_out = []
             parital_word = ""
@@ -85,8 +87,10 @@ class POSTaggingTask(LacTask):
 
             if len(sent_out) < len(tags_out):
                 sent_out.append(parital_word)
+
             result = list(zip(sent_out, tags_out))
             final_results.append(result)
+        final_results = self._auto_joiner(final_results, self.input_mapping)
         final_results = final_results if len(
             final_results) > 1 else final_results[0]
         return final_results

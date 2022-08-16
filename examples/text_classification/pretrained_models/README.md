@@ -28,21 +28,21 @@
 本项目针对中文文本分类问题，开源了一系列模型，供用户可配置地使用：
 
 + BERT([Bidirectional Encoder Representations from Transformers](https://arxiv.org/abs/1810.04805))中文模型，简写`bert-base-chinese`， 其由12层Transformer网络组成。
-+ ERNIE([Enhanced Representation through Knowledge Integration](https://arxiv.org/abs/1904.09223))，支持ERNIE 1.0中文模型（简写`ernie-1.0`）和ERNIE Tiny中文模型（简写`ernie-tiny`)。
-   其中`ernie`由12层Transformer网络组成，`ernie-tiny`由3层Transformer网络组成。
-+ RoBERTa([A Robustly Optimized BERT Pretraining Approach](https://arxiv.org/abs/1907.11692))，支持24层Transformer网络的`roberta-wwm-ext-large`和12层Transformer网络的`roberta-wwm-ext`。
++ ERNIE[ERNIE 3.0 Titan: Exploring Larger-scale Knowledge Enhanced Pre-training for Language Understanding and Generation](https://arxiv.org/abs/2112.12731)，支持ERNIE 3.0-Medium 中文模型（简写`ernie-3.0-medium-zh`）和 ERNIE 3.0-Base-zh 等 ERNIE 3.0 轻量级中文模型。
++ RoBERTa([A Robustly Optimized BERT Pretraining Approach](https://arxiv.org/abs/1907.11692))，支持 24 层 Transformer 网络的 `roberta-wwm-ext-large` 和 12 层 Transformer 网络的 `roberta-wwm-ext`。
 
 | 模型  | dev acc | test acc |
 | ---- | ------- | -------- |
 | bert-base-chinese  | 0.93833 | 0.94750 |
 | bert-wwm-chinese | 0.94583 | 0.94917 |
 | bert-wwm-ext-chinese | 0.94667 | 0.95500 |
-| ernie-1.0  | 0.94667  | 0.95333  |
+| ernie-1.0-base-zh  | 0.94667  | 0.95333  |
 | ernie-tiny  | 0.93917  | 0.94833 |
 | roberta-wwm-ext  | 0.94750  | 0.95250 |
 | roberta-wwm-ext-large | 0.95250 | 0.95333 |
 | rbt3 | 0.92583 | 0.93250 |
 | rbtl3 | 0.9341 | 0.93583 |
+
 
 ## 快速开始
 
@@ -69,36 +69,41 @@ pretrained_models/
 我们以中文情感分类公开数据集ChnSentiCorp为示例数据集，可以运行下面的命令，在训练集（train.tsv）上进行模型训练，并在开发集（dev.tsv）验证
 ```shell
 $ unset CUDA_VISIBLE_DEVICES
-$ python -m paddle.distributed.launch --gpus "0" train.py --device gpu --save_dir ./checkpoints
+$ python -m paddle.distributed.launch --gpus "0" train.py --device gpu --save_dir ./checkpoints --use_amp False
 ```
 
 可支持配置的参数：
 
 * `save_dir`：可选，保存训练模型的目录；默认保存在当前目录checkpoints文件夹下。
+* `dataset`：可选，xnli_cn，chnsenticorp 可选，默认为chnsenticorp数据集。
 * `max_seq_length`：可选，ERNIE/BERT模型使用的最大序列长度，最大不能超过512, 若出现显存不足，请适当调低这一参数；默认为128。
 * `batch_size`：可选，批处理大小，请结合显存情况进行调整，若出现显存不足，请适当调低这一参数；默认为32。
 * `learning_rate`：可选，Fine-tune的最大学习率；默认为5e-5。
 * `weight_decay`：可选，控制正则项力度的参数，用于防止过拟合，默认为0.00。
 * `epochs`: 训练轮次，默认为3。
+* `valid_steps`: evaluate的间隔steps数，默认100。
+* `save_steps`: 保存checkpoints的间隔steps数，默认100。
+* `logging_steps`: 日志打印的间隔steps数，默认10。
 * `warmup_proption`：可选，学习率warmup策略的比例，如果0.1，则学习率会在前10%训练step的过程中从0慢慢增长到learning_rate, 而后再缓慢衰减，默认为0.1。
 * `init_from_ckpt`：可选，模型参数路径，热启动模型训练；默认为None。
 * `seed`：可选，随机种子，默认为1000.
 * `device`: 选用什么设备进行训练，可选cpu或gpu。如使用gpu训练则参数gpus指定GPU卡号。
+* `use_amp`: 是否使用混合精度训练，默认为False。
 
 代码示例中使用的预训练模型是ERNIE，如果想要使用其他预训练模型如BERT等，只需更换`model` 和 `tokenizer`即可。
 
 ```python
 # 使用ernie预训练模型
-# ernie-1.0
-model = ppnlp.transformers.ErnieForSequenceClassification.from_pretrained('ernie-1.0',num_classes=2))
-tokenizer = ppnlp.transformers.ErnieTokenizer.from_pretrained('ernie-1.0')
+# ernie-3.0-medium-zh
+model = AutoModelForSequenceClassification.from_pretrained('ernie-3.0-medium-zh',num_classes=2))
+tokenizer = AutoTokenizer.from_pretrained('ernie-3.0-medium-zh')
 
 # 使用bert预训练模型
 # bert-base-chinese
-model = ppnlp.transformers.BertForSequenceClassification.from_pretrained('bert-base-chinese', num_class=2)
-tokenizer = ppnlp.transformers.BertTokenizer.from_pretrained('bert-base-chinese')
+model = AutoModelForSequenceClassification.from_pretrained('bert-base-chinese', num_class=2)
+tokenizer = AutoTokenizer.from_pretrained('bert-base-chinese')
 ```
-更多预训练模型，参考[transformers](../../../docs/model_zoo/transformers.rst)
+更多预训练模型，参考[transformers](https://paddlenlp.readthedocs.io/zh/latest/model_zoo/index.html#transformer)
 
 
 程序运行时将会自动进行训练，评估，测试。同时训练过程中会自动保存模型在指定的`save_dir`中。

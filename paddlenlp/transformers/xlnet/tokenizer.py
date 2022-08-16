@@ -19,7 +19,8 @@ import unicodedata
 from shutil import copyfile
 from typing import List, Optional
 
-from paddle.utils import try_import
+import sentencepiece as spm
+
 from .. import PretrainedTokenizer
 
 __all__ = ['XLNetTokenizer']
@@ -91,15 +92,15 @@ class XLNetTokenizer(PretrainedTokenizer):
     pretrained_resource_files_map = {
         "vocab_file": {
             "xlnet-base-cased":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/xlnet/xlnet-base-cased-spiece.model",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/xlnet/xlnet-base-cased-spiece.model",
             "xlnet-large-cased":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/xlnet/xlnet-large-cased-spiece.model",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/xlnet/xlnet-large-cased-spiece.model",
             "chinese-xlnet-base":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/xlnet/chinese-xlnet-base-spiece.model",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/xlnet/chinese-xlnet-base-spiece.model",
             "chinese-xlnet-mid":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/xlnet/chinese-xlnet-mid-spiece.model",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/xlnet/chinese-xlnet-mid-spiece.model",
             "chinese-xlnet-large":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/xlnet/chinese-xlnet-large-spiece.model",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/xlnet/chinese-xlnet-large-spiece.model",
         }
     }
     pretrained_init_configuration = {
@@ -130,26 +131,25 @@ class XLNetTokenizer(PretrainedTokenizer):
     padding_side = "left"
     pad_token_type_id = 3
 
-    def __init__(
-            self,
-            vocab_file,
-            do_lower_case=False,
-            remove_space=True,
-            keep_accents=False,
-            bos_token="<s>",
-            eos_token="</s>",
-            unk_token="<unk>",
-            sep_token="<sep>",
-            pad_token="<pad>",
-            cls_token="<cls>",
-            mask_token="<mask>",
-            additional_special_tokens=["<eop>", "<eod>"], ):
+    def __init__(self,
+                 vocab_file,
+                 do_lower_case=False,
+                 remove_space=True,
+                 keep_accents=False,
+                 bos_token="<s>",
+                 eos_token="</s>",
+                 unk_token="<unk>",
+                 sep_token="<sep>",
+                 pad_token="<pad>",
+                 cls_token="<cls>",
+                 mask_token="<mask>",
+                 additional_special_tokens=["<eop>", "<eod>"],
+                 **kwargs):
 
         self.do_lower_case = do_lower_case
         self.remove_space = remove_space
         self.keep_accents = keep_accents
         self.vocab_file = vocab_file
-        spm = try_import("sentencepiece")
         self.sp_model = spm.SentencePieceProcessor()
         self.sp_model.Load(vocab_file)
 
@@ -171,7 +171,6 @@ class XLNetTokenizer(PretrainedTokenizer):
 
     def __setstate__(self, d):
         self.__dict__ = d
-        spm = try_import("sentencepiece")
         self.sp_model = spm.SentencePieceProcessor()
         self.sp_model.Load(self.vocab_file)
 
@@ -217,18 +216,6 @@ class XLNetTokenizer(PretrainedTokenizer):
 
         return new_pieces
 
-    def tokenize(self, text):
-        # """
-        # Converts a string to a list of tokens.
-        #
-        # Args:
-        #     text (str):
-        #         The text to be tokenized.
-        # Returns:
-        #     List(str): A list of string representing converted tokens.
-        # """
-        return self._tokenize(text)
-
     def _convert_token_to_id(self, token):
         """Converts a token (str) to an id using the vocab. """
         return self.sp_model.PieceToId(token)
@@ -236,48 +223,6 @@ class XLNetTokenizer(PretrainedTokenizer):
     def _convert_id_to_token(self, index):
         """Converts an index (integer) to a token (str) using the vocab."""
         return self.sp_model.IdToPiece(index)
-
-    def convert_tokens_to_ids(self, tokens):
-        """
-        Converts a token (or a sequence of tokens) to a single integer id (or a sequence of ids),
-        using the vocabulary.
-
-        Args:
-            tokens (str or List[str]):
-                One or several token(s) to convert to token id(s).
-
-        Returns:
-            int or List[int] or tuple(int): The token id or list of token ids or tuple of token ids.
-        """
-        if not isinstance(tokens, (list, tuple)):
-            return self._convert_token_to_id(tokens)
-        else:
-            return [self._convert_token_to_id(token) for token in tokens]
-
-    def convert_ids_to_tokens(self, ids, skip_special_tokens=False):
-        """
-        Converts a single index or a sequence of indices to a token or
-        a sequence of tokens, using the vocabulary and added tokens.
-
-        Args:
-            ids (int or List[int]):
-                The token id (or token ids) to be converted to token(s).
-            skip_special_tokens (bool, optional):
-                Whether or not to remove special tokens in the decoding.
-                Defaults to `False` and we do not remove special tokens.
-
-        Returns:
-            str or List[str]: The decoded token(s).
-        """
-        if not isinstance(ids, (list, tuple)):
-            return self._convert_id_to_token(ids)
-        tokens = [self._convert_id_to_token(_id) for _id in ids]
-        if skip_special_tokens:
-            return [
-                token for token in tokens
-                if token not in self.all_special_tokens
-            ]
-        return tokens
 
     def convert_tokens_to_string(self, tokens):
         # Converts a sequence of tokens (strings for sub-words) in a single string.
@@ -299,8 +244,8 @@ class XLNetTokenizer(PretrainedTokenizer):
         token_ids_0 = []
         token_ids_1 = []
         return len(
-            self.build_inputs_with_special_tokens(token_ids_0, token_ids_1
-                                                  if pair else None))
+            self.build_inputs_with_special_tokens(
+                token_ids_0, token_ids_1 if pair else None))
 
     def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
         """
@@ -351,9 +296,8 @@ class XLNetTokenizer(PretrainedTokenizer):
         if offset_mapping_1 is None:
             return offset_mapping_0 + [(0, 0)] + [(0, 0)]
 
-        return offset_mapping_0 + [(0, 0)] + offset_mapping_1 + [(0, 0)] + [
-            (0, 0)
-        ]
+        return offset_mapping_0 + [(0, 0)] + offset_mapping_1 + [(0, 0)
+                                                                 ] + [(0, 0)]
 
     def get_special_tokens_mask(self,
                                 token_ids_0,
@@ -384,12 +328,14 @@ class XLNetTokenizer(PretrainedTokenizer):
                     "ids is already formatted with special tokens for the model."
                 )
             return list(
-                map(lambda x: 1 if x in [self.sep_token_id, self.cls_token_id] else 0,
+                map(
+                    lambda x: 1
+                    if x in [self.sep_token_id, self.cls_token_id] else 0,
                     token_ids_0))
 
         if token_ids_1 is not None:
-            return ([0] * len(token_ids_0)) + [1] + ([0] * len(token_ids_1)
-                                                     ) + [1, 1]
+            return ([0] * len(token_ids_0)) + [1] + ([0] *
+                                                     len(token_ids_1)) + [1, 1]
         return ([0] * len(token_ids_0)) + [1, 1]
 
     def create_token_type_ids_from_sequences(self,

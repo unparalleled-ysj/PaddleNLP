@@ -13,13 +13,14 @@
 # limitations under the License.
 
 import argparse
-
-import numpy as np
-import paddle
-import paddlenlp as ppnlp
 from scipy.special import softmax
+import numpy as np
+
+import paddle
 from paddle import inference
+
 from paddlenlp.data import Stack, Tuple, Pad
+from paddlenlp.transformers import SkepTokenizer
 
 # yapf: disable
 parser = argparse.ArgumentParser()
@@ -41,57 +42,15 @@ def convert_example(example,
                     label_list,
                     max_seq_length=512,
                     is_test=False):
-    """
-    Builds model inputs from a sequence or a pair of sequence for sequence classification tasks
-    by concatenating and adding special tokens. And creates a mask from the two sequences passed 
-    to be used in a sequence-pair classification task.
-        
-    A BERT sequence has the following format:
-
-    - single sequence: ``[CLS] X [SEP]``
-    - pair of sequences: ``[CLS] A [SEP] B [SEP]``
-
-    A BERT sequence pair mask has the following format:
-    ::
-        0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1
-        | first sequence    | second sequence |
-
-    If only one sequence, only returns the first portion of the mask (0's).
-
-
-    Args:
-        example(obj:`list[str]`): List of input data, containing text and label if it have label.
-        tokenizer(obj:`PretrainedTokenizer`): This tokenizer inherits from :class:`~paddlenlp.transformers.PretrainedTokenizer` 
-            which contains most of the methods. Users should refer to the superclass for more information regarding methods.
-        label_list(obj:`list[str]`): All the labels that the data has.
-        max_seq_len(obj:`int`): The maximum total input sequence length after tokenization. 
-            Sequences longer than this will be truncated, sequences shorter will be padded.
-        is_test(obj:`False`, defaults to `False`): Whether the example contains label or not.
-
-    Returns:
-        input_ids(obj:`list[int]`): The list of token ids.
-        segment_ids(obj: `list[int]`): List of sequence pair mask.
-        label(obj:`numpy.array`, data type of int64, optional): The input label if not is_test.
-    """
     text = example
     encoded_inputs = tokenizer(text=text, max_seq_len=max_seq_length)
-    input_ids = encoded_inputs["input_ids"]
-    segment_ids = encoded_inputs["token_type_ids"]
-
-    if not is_test:
-        # create label maps
-        label_map = {}
-        for (i, l) in enumerate(label_list):
-            label_map[l] = i
-
-        label = label_map[label]
-        label = np.array([label], dtype="int64")
-        return input_ids, segment_ids, label
-    else:
-        return input_ids, segment_ids
+    input_ids = np.array(encoded_inputs['input_ids'], dtype="int64")
+    token_type_ids = np.array(encoded_inputs['token_type_ids'], dtype="int64")
+    return input_ids, token_type_ids
 
 
 class Predictor(object):
+
     def __init__(self, model_file, params_file, device, max_seq_length):
         self.max_seq_length = max_seq_length
 
@@ -174,8 +133,7 @@ if __name__ == "__main__":
     predictor = Predictor(args.model_file, args.params_file, args.device,
                           args.max_seq_length)
 
-    tokenizer = ppnlp.transformers.SkepTokenizer.from_pretrained(
-        args.model_name)
+    tokenizer = SkepTokenizer.from_pretrained(args.model_name)
 
     # These data samples is in Chinese.
     # If you use the english model, you should change the test data in English.
@@ -186,7 +144,9 @@ if __name__ == "__main__":
     ]
     label_map = {0: 'negative', 1: 'positive'}
 
-    results = predictor.predict(
-        data, tokenizer, label_map, batch_size=args.batch_size)
+    results = predictor.predict(data,
+                                tokenizer,
+                                label_map,
+                                batch_size=args.batch_size)
     for idx, text in enumerate(data):
         print('Data: {} \t Label: {}'.format(text, results[idx]))

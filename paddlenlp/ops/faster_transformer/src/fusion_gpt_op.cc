@@ -7,6 +7,8 @@
 
 std::vector<paddle::Tensor> GPT2Forward(
     const paddle::Tensor& input,
+    const paddle::Tensor& attn_mask,
+    const paddle::Tensor& start_length,
     const paddle::Tensor& word_embedding,
     const std::vector<paddle::Tensor>& self_ln_weight,
     const std::vector<paddle::Tensor>& self_ln_bias,
@@ -37,7 +39,10 @@ std::vector<paddle::Tensor> GPT2Forward(
     const int& bos_id,
     const int& eos_id,
     const float& temperature,
-    const bool& use_fp16 = false) {
+    const bool& use_fp16 = false,
+    const int& tensor_para_size = 1,
+    const int& layer_para_size = 1,
+    const int& layer_para_batch_size = 1) {
   int batch_size = input.shape()[0];
   int start_len = input.shape()[1];
   int total_len = max_len + start_len;
@@ -45,15 +50,9 @@ std::vector<paddle::Tensor> GPT2Forward(
   auto output_ids = paddle::Tensor(input.place(), output_dims);
 
   if (word_embedding.place() == paddle::PlaceType::kGPU) {
-    paddle::Tensor input_ids = paddle::Tensor(paddle::PlaceType::kCPU);
-
-    if (input.place() != paddle::PlaceType::kCPU) {
-      input_ids = input.copy_to<int>(paddle::PlaceType::kCPU);
-    } else {
-      input_ids = input;
-    }
-
-    return GPT2CUDAForward(input_ids,
+    return GPT2CUDAForward(input,
+                           attn_mask,
+                           start_length,
                            word_embedding,
                            self_ln_weight,
                            self_ln_bias,
@@ -85,7 +84,10 @@ std::vector<paddle::Tensor> GPT2Forward(
                            bos_id,
                            eos_id,
                            temperature,
-                           use_fp16);
+                           use_fp16,
+                           tensor_para_size,
+                           layer_para_size,
+                           layer_para_batch_size);
   } else {
     PD_THROW("Not implemented place. Only GPU is supported. ");
   }
@@ -93,6 +95,8 @@ std::vector<paddle::Tensor> GPT2Forward(
 
 std::vector<std::vector<int64_t>> GPT2InferShape(
     const std::vector<int64_t>& input_shape,
+    const std::vector<int64_t>& attn_mask_shape,
+    const std::vector<int64_t>& start_length,
     const std::vector<int64_t>& word_embedding_shape,
     const std::vector<std::vector<int64_t>>& self_ln_weight_shapes,
     const std::vector<std::vector<int64_t>>& self_ln_bias_shapes,
@@ -123,7 +127,10 @@ std::vector<std::vector<int64_t>> GPT2InferShape(
     const int& bos_id,
     const int& eos_id,
     const float& temperature,
-    const bool& use_fp16 = false) {
+    const bool& use_fp16 = false,
+    const int& tensor_para_size = 1,
+    const int& layer_para_size = 1,
+    const int& layer_para_batch_size = 1) {
   int64_t batch_size = input_shape[0];
   int64_t start_len = input_shape[1];
   std::vector<int64_t> output_dims({max_len + start_len, batch_size});
@@ -132,6 +139,8 @@ std::vector<std::vector<int64_t>> GPT2InferShape(
 
 std::vector<paddle::DataType> GPT2InferDtype(
     const paddle::DataType& input_dtype,
+    const paddle::DataType& attn_mask_dtype,
+    const paddle::DataType& start_length_dtype,
     const paddle::DataType& word_embedding_dtype,
     const std::vector<paddle::DataType>& self_ln_weight_dtype,
     const std::vector<paddle::DataType>& self_ln_bias_dtype,
@@ -158,6 +167,8 @@ std::vector<paddle::DataType> GPT2InferDtype(
 
 PD_BUILD_OP(fusion_gpt)
     .Inputs({"Input",
+             "AttentionMask",
+             "StartLength",
              "WordEmbedding",
              paddle::Vec("SelfLayernormWeight"),
              paddle::Vec("SelfLayernormBias"),
@@ -189,7 +200,10 @@ PD_BUILD_OP(fusion_gpt)
             "bos_id: int",
             "eos_id: int",
             "temperature: float",
-            "use_fp16: bool"})
+            "use_fp16: bool",
+            "tensor_para_size: int",
+            "layer_para_size: int",
+            "layer_para_batch_size: int"})
     .SetKernelFn(PD_KERNEL(GPT2Forward))
     .SetInferShapeFn(PD_INFER_SHAPE(GPT2InferShape))
     .SetInferDtypeFn(PD_INFER_DTYPE(GPT2InferDtype));

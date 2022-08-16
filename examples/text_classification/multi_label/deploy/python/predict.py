@@ -38,6 +38,7 @@ args = parser.parse_args()
 
 
 class Predictor(object):
+
     def __init__(self, model_file, params_file, device, max_seq_length):
         self.max_seq_length = max_seq_length
 
@@ -124,10 +125,14 @@ if __name__ == "__main__":
         "Your bullshit is not welcome here.",
         "Thank you for understanding. I think very highly of you and would not revert without discussion.",
     ]
-    label_info = ['toxic', 'severe_toxic', 'obscene', 'threat', 'insult', 'identity_hate']
+    label_info = [
+        'toxic', 'severe_toxic', 'obscene', 'threat', 'insult', 'identity_hate'
+    ]
 
-    results = predictor.predict(
-        data, tokenizer, batch_size=args.batch_size, threshold=args.threshold)
+    results = predictor.predict(data,
+                                tokenizer,
+                                batch_size=args.batch_size,
+                                threshold=args.threshold)
     for idx, text in enumerate(data):
         print('Data: \t {}'.format(text))
         for i, k in enumerate(label_info):

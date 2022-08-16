@@ -23,6 +23,7 @@ def get_idx_from_word(word, word_to_idx, unk_word):
 
 
 class BaseTokenizer(object):
+
     def __init__(self, vocab):
         self.vocab = vocab
 
@@ -76,7 +77,7 @@ class JiebaTokenizer(BaseTokenizer):
 
                 from paddlenlp.data import Vocab, JiebaTokenizer
                 # The vocab file. The sample file can be downloaded firstly.
-                # wget https://paddlenlp.bj.bcebos.com/data/senta_word_dict.txt
+                # wget https://bj.bcebos.com/paddlenlp/data/senta_word_dict.txt
                 vocab_file_path = './senta_word_dict.txt'
                 # Initialize the Vocab
                 vocab = Vocab.load_vocabulary(
@@ -115,7 +116,7 @@ class JiebaTokenizer(BaseTokenizer):
 
                 from paddlenlp.data import Vocab, JiebaTokenizer
                 # The vocab file. The sample file can be downloaded firstly.
-                # wget https://paddlenlp.bj.bcebos.com/data/senta_word_dict.txt
+                # wget https://bj.bcebos.com/paddlenlp/data/senta_word_dict.txt
                 vocab_file_path = './senta_word_dict.txt'
                 # Initialize the Vocab
                 vocab = Vocab.load_vocabulary(

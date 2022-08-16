@@ -32,12 +32,14 @@ class DuReaderQG(DatasetBuilder):
 
     META_INFO = collections.namedtuple('META_INFO', ('file', 'md5', 'URL'))
     SPLITS = {
-        'train': META_INFO(
+        'train':
+        META_INFO(
             os.path.join('train.json'), 'a6d96bda4662e657ce644ed0e178fe70',
-            'https://paddlenlp.bj.bcebos.com/datasets/DuReaderQG/train.json'),
-        'dev': META_INFO(
+            'https://bj.bcebos.com/paddlenlp/datasets/DuReaderQG/train.json'),
+        'dev':
+        META_INFO(
             os.path.join('dev.json'), 'a6bd22b0da0ed8e20784398f507d4acc',
-            'https://paddlenlp.bj.bcebos.com/datasets/DuReaderQG/dev.json')
+            'https://bj.bcebos.com/paddlenlp/datasets/DuReaderQG/dev.json')
     }
 
     def _get_data(self, mode, **kwargs):

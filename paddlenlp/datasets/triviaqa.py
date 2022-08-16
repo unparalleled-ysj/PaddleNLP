@@ -34,15 +34,17 @@ class TriviaQA(DatasetBuilder):
     '''
     META_INFO = collections.namedtuple('META_INFO', ('file', 'md5', 'URL'))
     SPLITS = {
-        'train': META_INFO(
+        'train':
+        META_INFO(
             os.path.join('wikipedia-train.json'),
             'e4b3c74e781472d92e68da9c4b7418fe',
-            'https://paddlenlp.bj.bcebos.com/datasets/triviaqa/wikipedia-train.zip'
+            'https://bj.bcebos.com/paddlenlp/datasets/triviaqa/wikipedia-train.zip'
         ),
-        'dev': META_INFO(
+        'dev':
+        META_INFO(
             os.path.join('wikipedia-dev.json'),
             '20d23a2f668a46fe5c590d126f4d2b95',
-            'https://paddlenlp.bj.bcebos.com/datasets/triviaqa/wikipedia-dev.zip'
+            'https://bj.bcebos.com/paddlenlp/datasets/triviaqa/wikipedia-dev.zip'
         )
     }
 

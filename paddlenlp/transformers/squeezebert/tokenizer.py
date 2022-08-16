@@ -17,7 +17,9 @@ import os
 
 from paddlenlp.transformers import BasicTokenizer, PretrainedTokenizer, WordpieceTokenizer
 
-__all__ = ['SqueezeBertTokenizer', ]
+__all__ = [
+    'SqueezeBertTokenizer',
+]
 
 
 class SqueezeBertTokenizer(PretrainedTokenizer):
@@ -25,6 +27,7 @@ class SqueezeBertTokenizer(PretrainedTokenizer):
     Constructs a SqueezeBert tokenizer. It uses a basic tokenizer to do punctuation
     splitting, lower casing and so on, and follows a WordPiece tokenizer to
     tokenize as subwords.
+
     Args:
         vocab_file (str): file path of the vocabulary
         do_lower_case (bool): Whether the text strips accents and convert to
@@ -35,6 +38,7 @@ class SqueezeBertTokenizer(PretrainedTokenizer):
         pad_token (str): The special token for padding. Default: "[PAD]".
         cls_token (str): The special token for cls. Default: "[CLS]".
         mask_token (str): The special token for mask. Default: "[MASK]".
+
     Examples:
         .. code-block:: python
             from paddlenlp.transformers import SqueezeBertTokenizer
@@ -47,9 +51,12 @@ class SqueezeBertTokenizer(PretrainedTokenizer):
     resource_files_names = {"vocab_file": "vocab.txt"}  # for save_pretrained
     pretrained_resource_files_map = {
         "vocab_file": {
-            "squeezebert-uncased": "squeezebert-uncased-vocab.txt",
-            "squeezebert-mnli": "squeezebert-mnli-vocab.txt",
-            "queezebert-mnli-headless": "queezebert-mnli-headless-vocab.txt",
+            "squeezebert-uncased":
+            "http://bj.bcebos.com/paddlenlp/models/transformers/squeezebert/squeezebert-uncased/vocab.txt",
+            "squeezebert-mnli":
+            "http://bj.bcebos.com/paddlenlp/models/transformers/squeezebert/squeezebert-mnli/vocab.txt",
+            "squeezebert-mnli-headless":
+            "http://bj.bcebos.com/paddlenlp/models/transformers/squeezebert/squeezebert-mnli-headless/vocab.txt",
         }
     }
     pretrained_init_configuration = {
@@ -59,7 +66,7 @@ class SqueezeBertTokenizer(PretrainedTokenizer):
         "squeezebert-mnli": {
             "do_lower_case": True
         },
-        "queezebert-mnli-headless": {
+        "squeezebert-mnli-headless": {
             "do_lower_case": True
         }
     }
@@ -71,7 +78,8 @@ class SqueezeBertTokenizer(PretrainedTokenizer):
                  sep_token="[SEP]",
                  pad_token="[PAD]",
                  cls_token="[CLS]",
-                 mask_token="[MASK]"):
+                 mask_token="[MASK]",
+                 **kwargs):
 
         if not os.path.isfile(vocab_file):
             raise ValueError(
@@ -81,8 +89,8 @@ class SqueezeBertTokenizer(PretrainedTokenizer):
                 .format(vocab_file))
         self.vocab = self.load_vocabulary(vocab_file, unk_token=unk_token)
         self.basic_tokenizer = BasicTokenizer(do_lower_case=do_lower_case)
-        self.wordpiece_tokenizer = WordpieceTokenizer(
-            vocab=self.vocab, unk_token=unk_token)
+        self.wordpiece_tokenizer = WordpieceTokenizer(vocab=self.vocab,
+                                                      unk_token=unk_token)
 
     @property
     def vocab_size(self):
@@ -106,16 +114,6 @@ class SqueezeBertTokenizer(PretrainedTokenizer):
             for sub_token in self.wordpiece_tokenizer.tokenize(token):
                 split_tokens.append(sub_token)
         return split_tokens
-
-    def tokenize(self, text):
-        """
-        End-to-end tokenization for SqueezeBert models.
-        Args:
-            text (str): The text to be tokenized.
-        Returns:
-            list: A list of string representing converted tokens.
-        """
-        return self._tokenize(text)
 
     def convert_tokens_to_string(self, tokens):
         """
@@ -145,8 +143,8 @@ class SqueezeBertTokenizer(PretrainedTokenizer):
         token_ids_0 = []
         token_ids_1 = []
         return len(
-            self.build_inputs_with_special_tokens(token_ids_0, token_ids_1
-                                                  if pair else None))
+            self.build_inputs_with_special_tokens(
+                token_ids_0, token_ids_1 if pair else None))
 
     def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
         """
@@ -241,7 +239,9 @@ class SqueezeBertTokenizer(PretrainedTokenizer):
                     "ids is already formatted with special tokens for the model."
                 )
             return list(
-                map(lambda x: 1 if x in [self.sep_token_id, self.cls_token_id] else 0,
+                map(
+                    lambda x: 1
+                    if x in [self.sep_token_id, self.cls_token_id] else 0,
                     token_ids_0))
 
         if token_ids_1 is not None:

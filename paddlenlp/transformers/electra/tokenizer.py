@@ -17,7 +17,9 @@ import os
 
 from .. import BasicTokenizer, PretrainedTokenizer, WordpieceTokenizer
 
-__all__ = ['ElectraTokenizer', ]
+__all__ = [
+    'ElectraTokenizer',
+]
 
 
 class ElectraTokenizer(PretrainedTokenizer):
@@ -71,15 +73,17 @@ class ElectraTokenizer(PretrainedTokenizer):
     pretrained_resource_files_map = {
         "vocab_file": {
             "electra-small":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/electra/electra-small-vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/electra/electra-small-vocab.txt",
             "electra-base":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/electra/electra-base-vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/electra/electra-base-vocab.txt",
             "electra-large":
-            "https://paddlenlp.bj.bcebos.com/models/transformers/electra/electra-large-vocab.txt",
+            "https://bj.bcebos.com/paddlenlp/models/transformers/electra/electra-large-vocab.txt",
             "chinese-electra-base":
-            "http://paddlenlp.bj.bcebos.com/models/transformers/chinese-electra-base/vocab.txt",
+            "http://bj.bcebos.com/paddlenlp/models/transformers/chinese-electra-base/vocab.txt",
             "chinese-electra-small":
-            "http://paddlenlp.bj.bcebos.com/models/transformers/chinese-electra-small/vocab.txt",
+            "http://bj.bcebos.com/paddlenlp/models/transformers/chinese-electra-small/vocab.txt",
+            "ernie-health-chinese":
+            "https://paddlenlp.bj.bcebos.com/models/transformers/ernie-health-chinese/vocab.txt"
         }
     }
     pretrained_init_configuration = {
@@ -98,6 +102,9 @@ class ElectraTokenizer(PretrainedTokenizer):
         "chinese-electra-small": {
             "do_lower_case": True
         },
+        "ernie-health-chinese": {
+            "do_lower_case": True
+        }
     }
 
     def __init__(self,
@@ -107,7 +114,8 @@ class ElectraTokenizer(PretrainedTokenizer):
                  sep_token="[SEP]",
                  pad_token="[PAD]",
                  cls_token="[CLS]",
-                 mask_token="[MASK]"):
+                 mask_token="[MASK]",
+                 **kwargs):
 
         if not os.path.isfile(vocab_file):
             raise ValueError(
@@ -115,10 +123,11 @@ class ElectraTokenizer(PretrainedTokenizer):
                 "vocabulary from a pretrained model please use "
                 "`tokenizer = ElectraTokenizer.from_pretrained(PRETRAINED_MODEL_NAME)`"
                 .format(vocab_file))
+        self.do_lower_case = do_lower_case
         self.vocab = self.load_vocabulary(vocab_file, unk_token=unk_token)
         self.basic_tokenizer = BasicTokenizer(do_lower_case=do_lower_case)
-        self.wordpiece_tokenizer = WordpieceTokenizer(
-            vocab=self.vocab, unk_token=unk_token)
+        self.wordpiece_tokenizer = WordpieceTokenizer(vocab=self.vocab,
+                                                      unk_token=unk_token)
 
     @property
     def vocab_size(self):
@@ -145,26 +154,6 @@ class ElectraTokenizer(PretrainedTokenizer):
             for sub_token in self.wordpiece_tokenizer.tokenize(token):
                 split_tokens.append(sub_token)
         return split_tokens
-
-    def tokenize(self, text):
-        """
-        Converts a string to a list of tokens.
-
-        Args:
-            text (str): The text to be tokenized.
-
-        Returns:
-            List(str): A list of string representing converted tokens.
-
-        Examples:
-            .. code-block::
-
-                from paddlenlp.transformers import ElectraTokenizer
-                tokenizer = ElectraTokenizer.from_pretrained('electra-small')
-                tokens = tokenizer.tokenize('He was a puppeteer')
-
-        """
-        return self._tokenize(text)
 
     def convert_tokens_to_string(self, tokens):
         """
@@ -205,8 +194,8 @@ class ElectraTokenizer(PretrainedTokenizer):
         token_ids_0 = []
         token_ids_1 = []
         return len(
-            self.build_inputs_with_special_tokens(token_ids_0, token_ids_1
-                                                  if pair else None))
+            self.build_inputs_with_special_tokens(
+                token_ids_0, token_ids_1 if pair else None))
 
     def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
         """
@@ -313,7 +302,9 @@ class ElectraTokenizer(PretrainedTokenizer):
                     "ids is already formatted with special tokens for the model."
                 )
             return list(
-                map(lambda x: 1 if x in [self.sep_token_id, self.cls_token_id] else 0,
+                map(
+                    lambda x: 1
+                    if x in [self.sep_token_id, self.cls_token_id] else 0,
                     token_ids_0))
 
         if token_ids_1 is not None:
