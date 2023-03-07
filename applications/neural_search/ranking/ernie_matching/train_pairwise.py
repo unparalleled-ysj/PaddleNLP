@@ -47,8 +47,9 @@ parser.add_argument("--weight_decay", default=0.0, type=float, help="Weight deca
 parser.add_argument("--epochs", default=3, type=int, help="Total number of training epochs to perform.")
 parser.add_argument("--eval_step", default=200, type=int, help="Step interval for evaluation.")
 parser.add_argument('--save_step', default=10000, type=int, help="Step interval for saving checkpoint.")
-parser.add_argument("--warmup_proportion", default=0.0, type=float, help="Linear warmup proption over the training process.")
+parser.add_argument("--warmup_proportion", default=0.0, type=float, help="Linear warmup proportion over the training process.")
 parser.add_argument("--init_from_ckpt", type=str, default=None, help="The path of checkpoint to be loaded.")
+parser.add_argument('--model_name_or_path', default="ernie-3.0-medium-zh", help="The pretrained model used for training")
 parser.add_argument("--seed", type=int, default=1000, help="Random seed for initialization.")
 parser.add_argument('--device', choices=['cpu', 'gpu'], default="gpu", help="Select which device to train model, defaults to gpu.")
 args = parser.parse_args()
@@ -78,8 +79,7 @@ def evaluate(model, metric, data_loader, phase="dev"):
     for idx, batch in enumerate(data_loader):
         input_ids, token_type_ids, labels = batch
 
-        pos_probs = model.predict(input_ids=input_ids,
-                                  token_type_ids=token_type_ids)
+        pos_probs = model.predict(input_ids=input_ids, token_type_ids=token_type_ids)
 
         neg_probs = 1.0 - pos_probs
 
@@ -93,21 +93,21 @@ def evaluate(model, metric, data_loader, phase="dev"):
 
 # 构建读取函数，读取原始数据
 def read(src_path, is_predict=False):
-    data = pd.read_csv(src_path, sep='\t')
+    data = pd.read_csv(src_path, sep="\t")
     for index, row in tqdm(data.iterrows()):
-        query = row['query']
-        title = row['title']
-        neg_title = row['neg_title']
-        yield {'query': query, 'title': title, 'neg_title': neg_title}
+        query = row["query"]
+        title = row["title"]
+        neg_title = row["neg_title"]
+        yield {"query": query, "title": title, "neg_title": neg_title}
 
 
 def read_test(src_path, is_predict=False):
-    data = pd.read_csv(src_path, sep='\t')
+    data = pd.read_csv(src_path, sep="\t")
     for index, row in tqdm(data.iterrows()):
-        query = row['query']
-        title = row['title']
-        label = row['label']
-        yield {'query': query, 'title': title, 'label': label}
+        query = row["query"]
+        title = row["title"]
+        label = row["label"]
+        yield {"query": query, "title": title, "label": label}
 
 
 def do_train():
@@ -121,48 +121,33 @@ def do_train():
     train_ds = load_dataset(read, src_path=args.train_file, lazy=False)
     dev_ds = load_dataset(read_test, src_path=args.test_file, lazy=False)
 
-    pretrained_model = AutoModel.from_pretrained('ernie-3.0-medium-zh')
-    tokenizer = AutoTokenizer.from_pretrained('ernie-3.0-medium-zh')
+    pretrained_model = AutoModel.from_pretrained(args.model_name_or_path)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
 
-    trans_func_train = partial(convert_example,
-                               tokenizer=tokenizer,
-                               max_seq_length=args.max_seq_length)
+    trans_func_train = partial(convert_example, tokenizer=tokenizer, max_seq_length=args.max_seq_length)
 
-    trans_func_eval = partial(convert_example,
-                              tokenizer=tokenizer,
-                              max_seq_length=args.max_seq_length,
-                              phase="eval")
+    trans_func_eval = partial(convert_example, tokenizer=tokenizer, max_seq_length=args.max_seq_length, phase="eval")
 
     batchify_fn_train = lambda samples, fn=Tuple(
-        Pad(axis=0, pad_val=tokenizer.pad_token_id, dtype="int64"
-            ),  # pos_pair_input
-        Pad(axis=0, pad_val=tokenizer.pad_token_type_id, dtype="int64"
-            ),  # pos_pair_segment
-        Pad(axis=0, pad_val=tokenizer.pad_token_id, dtype="int64"
-            ),  # neg_pair_input
-        Pad(axis=0, pad_val=tokenizer.pad_token_type_id, dtype="int64"
-            )  # neg_pair_segment
+        Pad(axis=0, pad_val=tokenizer.pad_token_id, dtype="int64"),  # pos_pair_input
+        Pad(axis=0, pad_val=tokenizer.pad_token_type_id, dtype="int64"),  # pos_pair_segment
+        Pad(axis=0, pad_val=tokenizer.pad_token_id, dtype="int64"),  # neg_pair_input
+        Pad(axis=0, pad_val=tokenizer.pad_token_type_id, dtype="int64"),  # neg_pair_segment
     ): [data for data in fn(samples)]
 
     batchify_fn_eval = lambda samples, fn=Tuple(
-        Pad(axis=0, pad_val=tokenizer.pad_token_id, dtype="int64"
-            ),  # pair_input
-        Pad(axis=0, pad_val=tokenizer.pad_token_type_id, dtype="int64"
-            ),  # pair_segment
-        Stack(dtype="int64")  # label
+        Pad(axis=0, pad_val=tokenizer.pad_token_id, dtype="int64"),  # pair_input
+        Pad(axis=0, pad_val=tokenizer.pad_token_type_id, dtype="int64"),  # pair_segment
+        Stack(dtype="int64"),  # label
     ): [data for data in fn(samples)]
 
-    train_data_loader = create_dataloader(train_ds,
-                                          mode='train',
-                                          batch_size=args.batch_size,
-                                          batchify_fn=batchify_fn_train,
-                                          trans_fn=trans_func_train)
+    train_data_loader = create_dataloader(
+        train_ds, mode="train", batch_size=args.batch_size, batchify_fn=batchify_fn_train, trans_fn=trans_func_train
+    )
 
-    dev_data_loader = create_dataloader(dev_ds,
-                                        mode='dev',
-                                        batch_size=args.batch_size,
-                                        batchify_fn=batchify_fn_eval,
-                                        trans_fn=trans_func_eval)
+    dev_data_loader = create_dataloader(
+        dev_ds, mode="dev", batch_size=args.batch_size, batchify_fn=batchify_fn_eval, trans_fn=trans_func_eval
+    )
 
     model = PairwiseMatching(pretrained_model, margin=args.margin)
 
@@ -172,20 +157,17 @@ def do_train():
 
     num_training_steps = len(train_data_loader) * args.epochs
 
-    lr_scheduler = LinearDecayWithWarmup(args.learning_rate, num_training_steps,
-                                         args.warmup_proportion)
+    lr_scheduler = LinearDecayWithWarmup(args.learning_rate, num_training_steps, args.warmup_proportion)
 
     # Generate parameter names needed to perform weight decay.
     # All bias and LayerNorm parameters are excluded.
-    decay_params = [
-        p.name for n, p in model.named_parameters()
-        if not any(nd in n for nd in ["bias", "norm"])
-    ]
+    decay_params = [p.name for n, p in model.named_parameters() if not any(nd in n for nd in ["bias", "norm"])]
     optimizer = paddle.optimizer.AdamW(
         learning_rate=lr_scheduler,
         parameters=model.parameters(),
         weight_decay=args.weight_decay,
-        apply_decay_param_fun=lambda x: x in decay_params)
+        apply_decay_param_fun=lambda x: x in decay_params,
+    )
 
     metric = paddle.metric.Auc()
 
@@ -195,17 +177,19 @@ def do_train():
         for step, batch in enumerate(train_data_loader, start=1):
             pos_input_ids, pos_token_type_ids, neg_input_ids, neg_token_type_ids = batch
 
-            loss = model(pos_input_ids=pos_input_ids,
-                         neg_input_ids=neg_input_ids,
-                         pos_token_type_ids=pos_token_type_ids,
-                         neg_token_type_ids=neg_token_type_ids)
+            loss = model(
+                pos_input_ids=pos_input_ids,
+                neg_input_ids=neg_input_ids,
+                pos_token_type_ids=pos_token_type_ids,
+                neg_token_type_ids=neg_token_type_ids,
+            )
 
             global_step += 1
             if global_step % 10 == 0 and rank == 0:
                 print(
                     "global step %d, epoch: %d, batch: %d, loss: %.5f, speed: %.2f step/s"
-                    % (global_step, epoch, step, loss, 10 /
-                       (time.time() - tic_train)))
+                    % (global_step, epoch, step, loss, 10 / (time.time() - tic_train))
+                )
                 tic_train = time.time()
 
             loss.backward()
@@ -220,7 +204,7 @@ def do_train():
                 save_dir = os.path.join(args.save_dir, "model_%d" % global_step)
                 if not os.path.exists(save_dir):
                     os.makedirs(save_dir)
-                save_param_path = os.path.join(save_dir, 'model_state.pdparams')
+                save_param_path = os.path.join(save_dir, "model_state.pdparams")
                 paddle.save(model.state_dict(), save_param_path)
                 tokenizer.save_pretrained(save_dir)
 

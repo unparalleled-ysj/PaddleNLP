@@ -1,3 +1,17 @@
+# Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import argparse
 
 
@@ -33,7 +47,7 @@ def parse_args():
 
 def set_default_args(args):
     args.task_name = args.task_name.lower()
-    if args.task_name == 'udc':
+    if args.task_name == "udc":
         if not args.save_steps:
             args.save_steps = 1000
         if not args.logging_steps:
@@ -44,7 +58,7 @@ def set_default_args(args):
             args.max_seq_len = 210
         if not args.test_batch_size:
             args.test_batch_size = 100
-    elif args.task_name == 'dstc2':
+    elif args.task_name == "dstc2":
         if not args.save_steps:
             args.save_steps = 400
         if not args.logging_steps:
@@ -57,28 +71,28 @@ def set_default_args(args):
             args.max_seq_len = 256
         if not args.test_max_seq_len:
             args.test_max_seq_len = 512
-    elif args.task_name == 'atis_slot':
+    elif args.task_name == "atis_slot":
         if not args.save_steps:
             args.save_steps = 100
         if not args.logging_steps:
             args.logging_steps = 10
         if not args.epochs:
             args.epochs = 50
-    elif args.task_name == 'atis_intent':
+    elif args.task_name == "atis_intent":
         if not args.save_steps:
             args.save_steps = 100
         if not args.logging_steps:
             args.logging_steps = 10
         if not args.epochs:
             args.epochs = 20
-    elif args.task_name == 'mrda':
+    elif args.task_name == "mrda":
         if not args.save_steps:
             args.save_steps = 500
         if not args.logging_steps:
             args.logging_steps = 200
         if not args.epochs:
             args.epochs = 7
-    elif args.task_name == 'swda':
+    elif args.task_name == "swda":
         if not args.save_steps:
             args.save_steps = 500
         if not args.logging_steps:
@@ -86,12 +100,12 @@ def set_default_args(args):
         if not args.epochs:
             args.epochs = 3
     else:
-        raise ValueError('Not support task: %s.' % args.task_name)
+        raise ValueError("Not support task: %s." % args.task_name)
 
     if not args.data_dir:
-        args.data_dir = './DGU_datasets/' + args.task_name
+        args.data_dir = "./DGU_datasets/" + args.task_name
     if not args.output_dir:
-        args.output_dir = './checkpoints/' + args.task_name
+        args.output_dir = "./checkpoints/" + args.task_name
     if not args.learning_rate:
         args.learning_rate = 2e-5
     if not args.batch_size:

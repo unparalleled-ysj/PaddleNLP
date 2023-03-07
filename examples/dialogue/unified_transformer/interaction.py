@@ -1,11 +1,27 @@
+# Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import argparse
 
-from termcolor import colored, cprint
 import paddle
-from paddlenlp.transformers import (UnifiedTransformerLMHeadModel,
-                                    UnifiedTransformerTokenizer)
+from termcolor import colored, cprint
+from utils import print_args, select_response, set_seed
 
-from utils import print_args, set_seed, select_response
+from paddlenlp.transformers import (
+    UnifiedTransformerLMHeadModel,
+    UnifiedTransformerTokenizer,
+)
 
 
 # yapf: disable
@@ -43,16 +59,15 @@ def interaction(args, model, tokenizer):
             cprint(start_info, "yellow", attrs=["bold"])
         else:
             history.append(user_utt)
-            inputs = tokenizer.dialogue_encode(history,
-                                               add_start_token_as_response=True,
-                                               return_tensors=True,
-                                               is_split_into_words=False)
-            inputs['input_ids'] = inputs['input_ids'].astype('int64')
+            inputs = tokenizer.dialogue_encode(
+                history, add_start_token_as_response=True, return_tensors=True, is_split_into_words=False
+            )
+            inputs["input_ids"] = inputs["input_ids"].astype("int64")
             ids, scores = model.generate(
-                input_ids=inputs['input_ids'],
-                token_type_ids=inputs['token_type_ids'],
-                position_ids=inputs['position_ids'],
-                attention_mask=inputs['attention_mask'],
+                input_ids=inputs["input_ids"],
+                token_type_ids=inputs["token_type_ids"],
+                position_ids=inputs["position_ids"],
+                attention_mask=inputs["attention_mask"],
                 max_length=args.max_dec_len,
                 min_length=args.min_dec_len,
                 decode_strategy=args.decode_strategy,
@@ -63,15 +78,12 @@ def interaction(args, model, tokenizer):
                 length_penalty=args.length_penalty,
                 early_stopping=args.early_stopping,
                 num_return_sequences=args.num_return_sequences,
-                use_faster=True)
-            bot_response = select_response(ids,
-                                           scores,
-                                           tokenizer,
-                                           args.max_dec_len,
-                                           args.num_return_sequences,
-                                           keep_space=False)[0]
-            print(colored("[Bot]:", "blue", attrs=["bold"]),
-                  colored(bot_response, attrs=["bold"]))
+                use_fast=True,
+            )
+            bot_response = select_response(
+                ids, scores, tokenizer, args.max_dec_len, args.num_return_sequences, keep_space=False
+            )[0]
+            print(colored("[Bot]:", "blue", attrs=["bold"]), colored(bot_response, attrs=["bold"]))
             history.append(bot_response)
     return
 
@@ -82,17 +94,14 @@ def main(args):
         set_seed(args.seed)
 
     # Initialize the model and tokenizer
-    model_name_or_path = 'plato-mini'
-    model = UnifiedTransformerLMHeadModel.from_pretrained(
-        args.model_name_or_path)
-    tokenizer = UnifiedTransformerTokenizer.from_pretrained(
-        args.model_name_or_path)
+    model = UnifiedTransformerLMHeadModel.from_pretrained(args.model_name_or_path)
+    tokenizer = UnifiedTransformerTokenizer.from_pretrained(args.model_name_or_path)
 
     model.eval()
     interaction(args, model, tokenizer)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     args = parse_args()
     print_args(args)
     main(args)

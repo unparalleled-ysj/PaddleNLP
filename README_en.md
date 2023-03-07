@@ -1,4 +1,4 @@
-[简体中文🀄](./README_cn.md) |  **English**🌎
+[简体中文🀄](./README.md) |  **English**🌎
 
 <p align="center">
   <img src="https://user-images.githubusercontent.com/1371212/175816733-8ec25eb0-9af3-4380-9218-27c154518258.png" align="middle"  width="500" />
@@ -29,16 +29,22 @@
 **PaddleNLP** is an *easy-to-use* and *powerful* NLP library with **Awesome** pre-trained model zoo, supporting wide-range of NLP tasks from research to industrial applications.
 
 ## News 📢
-* 📝 2022.8.1 **PaddleNLP v2.3.5** Released！
-  * Release the dialogic code generation model [**CodeGen**](./examples/code_generation/codegen), which can be easily used via [Taskflow](./docs/model_zoo/taskflow.md).
-  * Release [**UIE en**](./model_zoo/uie), supports for multiple tasks in **open-domain** information extraction.
-  * Release [**RGL**](./examples/few_shot/RGL), an independent research prompt-base tuning approach for few-shot learning, the paper is accepted by NAACL 2022.
-* 🍭 2022.6.29 **PaddleNLP v2.3.4** Released! Whole series of Chinese pretrained models [**ERNIE Tiny**](./model_zoo/ernie-3.0) are released to quickly improve deployment efficiency. We also provides smaller and faster models [**UIE Tiny**](./model_zoo/uie) for universal information extraction.
-* 🔥 2022.5.16 PaddleNLP [v2.3](https://github.com/PaddlePaddle/PaddleNLP/releases/tag/v2.3.0) Released!🎉
-  * 💎 Release [**UIE** (Universal Information Extraction)](./model_zoo/uie) technique, single model supports multiple **open-domain** IE tasks. Super easy to use and finetune with few examples via [Taskflow](./docs/model_zoo/taskflow.md).
-  * 😊 Release [**ERNIE 3.0**](./model_zoo/ernie-3.0) light-weight model achieved better results compared to ERNIE 2.0 on [CLUE](https://www.cluebenchmarks.com/), also including **🗜️lossless model compression** and **⚙️end-to-end deployment**.
-  * 🏥 Release [**ERNIE-Health**](./model_zoo/ernie-health), a **SOTA** biomedical pretrained model on [CBLUE](https://github.com/CBLUEbenchmark/CBLUE).
-  * 💬 Release [**PLATO-XL**](./model_zoo/plato-xl) with ⚡**FasterGeneration**⚡, the *11B open-domain SOTA chatbot model* can be deployed on multi-GPU and do parallel inference easily.
+
+* 🔥 **Latest Features**
+  * 📃 Release **[UIE-X](./applications/information_extraction)**, an universal information extraction model that supports both document and text inputs.
+  * ❣️Release  **[Opinion Mining and Sentiment Analysis Models](./applications/sentiment_analysis/unified_sentiment_extraction)** based on UIE,  including abilities of sentence-level and aspect-based sentiment classification, attribute extraction,  opinion extraction,  attribute aggregation and implicit opinion extraction.
+* **2022.9.6 [PaddleNLPv2.4](https://github.com/PaddlePaddle/PaddleNLP/releases/tag/v2.4.0) Released!**
+  * 💎 NLP Tools: Released **[Pipelines](./pipelines)** which supports turn-key construction of search engine and question answering systems. It features a flexible design that is applicable for all kinds of NLP systems so you can build end-to-end NLP pipelines like Legos!
+
+  * 🔨 Industrial application: Release **[Complete Solution of Text Classification](./applications/text_classification)** covering various scenarios of text classification: multi-class, multi-label and hierarchical, it also supports **few-shot learning** and the training and optimization of **TrustAI**. Upgrade for [**UIE**](./model_zoo/uie) and release **UIE-M**, support both Chinese and English information extraction in a single model; release the data distillation solution for UIE to break the bottleneck of time-consuming of inference.
+
+  * 🍭 AIGC: Release code generation SOTA model [**CodeGen**](./examples/code_generation/codegen) that supports  multiple programming languages code generation. Integrate [**Text to Image Model**](https://github.com/PaddlePaddle/PaddleNLP/blob/develop/docs/model_zoo/taskflow.md#%E6%96%87%E5%9B%BE%E7%94%9F%E6%88%90) DALL·E Mini, Disco Diffusion, Stable Diffusion, let's play and have some fun!
+
+  * 💪 Framework upgrade: Release [**Auto Model Compression API**](./docs/compression.md), supports for pruning and quantization automatically, lower the barriers of model compression; Release [**Few-shot Prompt**](./applications/text_classification/multi_class/few-shot), includes the algorithms such as PET, P-Tuning and RGL.
+
+
+
+
 
 ## Features
 
@@ -63,7 +69,7 @@ For more usage please refer to [Taskflow Docs](./docs/model_zoo/taskflow.md).
 
 #### 🀄 Comprehensive Chinese Transformer Models
 
-We provide **45+** network architectures and over **500+** pretrained models. Not only includes all the SOTA model like ERNIE, PLATO and SKEP released by Baidu, but also integrates most of the high-quality Chinese pretrained model developed by other organizations. Use `AutoModel` API to **⚡SUPER FAST⚡** download pretrained mdoels of different architecture. We welcome all developers to contribute your Transformer models to PaddleNLP!
+We provide **45+** network architectures and over **500+** pretrained models. Not only includes all the SOTA model like ERNIE, PLATO and SKEP released by Baidu, but also integrates most of the high-quality Chinese pretrained model developed by other organizations. Use `AutoModel` API to **⚡SUPER FAST⚡** download pretrained models of different architecture. We welcome all developers to contribute your Transformer models to PaddleNLP!
 
 ```python
 from paddlenlp.transformers import *
@@ -187,7 +193,7 @@ We provide question answering pipeline which can support FAQ system, Document-le
 </div>
 
 
-For more details please refer to [Question Answering](./applications/question_answering) and [Document VQA](./applications/doc_vqa).
+For more details please refer to [Question Answering](./applications/question_answering) and [Document VQA](./applications/document_intelligence/doc_vqa).
 
 
 #### 💌 Opinion Extraction and Sentiment Analysis
@@ -214,19 +220,19 @@ For more details please refer to [Speech Command Analysis](./applications/speech
 
 ### High Performance Distributed Training and Inference
 
-#### ⚡ FasterTokenizer: High Performance Text Preprocessing Library
+#### ⚡ FastTokenizer: High Performance Text Preprocessing Library
 
 <div align="center">
     <img src="https://user-images.githubusercontent.com/11793384/168407921-b4395b1d-44bd-41a0-8c58-923ba2b703ef.png" width="400">
 </div>
 
 ```python
-AutoTokenizer.from_pretrained("ernie-3.0-medium-zh", use_faster=True)
+AutoTokenizer.from_pretrained("ernie-3.0-medium-zh", use_fast=True)
 ```
 
-Set `use_faster=True` to use C++ Tokenizer kernel to achieve 100x faster on text pre-processing. For more usage please refer to [FasterTokenizer](./faster_tokenizer).
+Set `use_fast=True` to use C++ Tokenizer kernel to achieve 100x faster on text pre-processing. For more usage please refer to [FastTokenizer](./fast_tokenizer).
 
-#### ⚡ FasterGeneration: High Perforance Generation Library
+#### ⚡ FastGeneration: High Perforance Generation Library
 
 <div align="center">
     <img src="https://user-images.githubusercontent.com/11793384/168407831-914dced0-3a5a-40b8-8a65-ec82bf13e53c.gif" width="400">
@@ -237,10 +243,10 @@ model = GPTLMHeadModel.from_pretrained('gpt-cpm-large-cn')
 ...
 outputs, _ = model.generate(
     input_ids=inputs_ids, max_length=10, decode_strategy='greedy_search',
-    use_faster=True)
+    use_fast=True)
 ```
 
-Set `use_faster=True` to achieve 5x speedup for Transformer, GPT, BART, PLATO, UniLM text generation. For more usage please refer to [FasterGeneration](./faster_generation).
+Set `use_fast=True` to achieve 5x speedup for Transformer, GPT, BART, PLATO, UniLM text generation. For more usage please refer to [FastGeneration](./fast_generation).
 
 #### 🚀 Fleet: 4D Hybrid Distributed Training
 
@@ -256,8 +262,8 @@ For more super large-scale model pre-training details please refer to [GPT-3](./
 
 ### Prerequisites
 
-* python >= 3.6
-* paddlepaddle >= 2.2
+* python >= 3.7
+* paddlepaddle >= 2.3
 
 More information about PaddlePaddle installation please refer to [PaddlePaddle's Website](https://www.paddlepaddle.org.cn/install/quick?docurl=/documentation/docs/zh/install/conda/linux-conda.html).
 
@@ -265,6 +271,12 @@ More information about PaddlePaddle installation please refer to [PaddlePaddle's
 
 ```
 pip install --upgrade paddlenlp
+```
+
+or you can install the latest develop branch code with the following command:
+
+```shell
+pip install --pre --upgrade paddlenlp -f https://www.paddlepaddle.org.cn/whl/paddlenlp.html
 ```
 
 ## Quick Start
@@ -310,10 +322,6 @@ Please find all PaddleNLP API Reference from our [readthedocs](https://paddlenlp
 
 ## Community
 
-### Special Interest Group (SIG)
-
-Welcome to join [PaddleNLP SIG](https://iwenjuan.baidu.com/?code=bkypg8) for contribution, eg. Dataset, Models and Toolkit.
-
 ### Slack
 
 To connect with other users and contributors, welcome to join our [Slack channel](https://paddlenlp.slack.com/).
@@ -322,9 +330,10 @@ To connect with other users and contributors, welcome to join our [Slack channel
 
 Scan the QR code below with your Wechat⬇️. You can access to official technical exchange group. Look forward to your participation.
 
- <div align="center">
- <img src="https://user-images.githubusercontent.com/11793384/184784832-bb97930f-a738-4480-99be-517aeb65afac.png" width="150" height="150" />
- </div>
+<div align="center">
+<img src="https://user-images.githubusercontent.com/11793384/212060369-4642d16e-f0ad-4359-aa57-b8303042f9c1.jpg" width="150" height="150" />
+</div>
+
 
 
 ## Citation
@@ -341,7 +350,7 @@ If you find PaddleNLP useful in your research, please consider cite
 
 ## Acknowledge
 
-We have borrowed from Hugging Face's [Transformer](https://github.com/huggingface/transformers)🤗 excellent design on pretrained models usage, and we would like to express our gratitude to the authors of Hugging Face and its open source community.
+We have borrowed from Hugging Face's [Transformers](https://github.com/huggingface/transformers)🤗 excellent design on pretrained models usage, and we would like to express our gratitude to the authors of Hugging Face and its open source community.
 
 ## License
 

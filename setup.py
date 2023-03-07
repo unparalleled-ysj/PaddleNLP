@@ -11,19 +11,35 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
-import setuptools
-import sys
 import io
-import paddlenlp
+import os
 
-with open("requirements.txt") as fin:
-    REQUIRED_PACKAGES = fin.read()
+import setuptools
+
+PADDLENLP_STABLE_VERSION = "PADDLENLP_STABLE_VERSION"
+
+
+def read_requirements_file(filepath):
+    with open(filepath) as fin:
+        requirements = fin.read()
+    return requirements
+
+
+__version__ = "2.5.1.post"
+if os.getenv(PADDLENLP_STABLE_VERSION):
+    __version__ = __version__.replace(".post", "")
+
+
+extras = {}
+REQUIRED_PACKAGES = read_requirements_file("requirements.txt")
+extras["tests"] = read_requirements_file("tests/requirements.txt")
+extras["docs"] = read_requirements_file("docs/requirements.txt")
+extras["autonlp"] = read_requirements_file("paddlenlp/experimental/autonlp/requirements.txt")
+extras["dev"] = extras["tests"] + extras["docs"] + extras["autonlp"]
 
 
 def read(*names, **kwargs):
-    with io.open(os.path.join(os.path.dirname(__file__), *names),
-                 encoding=kwargs.get("encoding", "utf8")) as fp:
+    with io.open(os.path.join(os.path.dirname(__file__), *names), encoding=kwargs.get("encoding", "utf8")) as fp:
         return fp.read()
 
 
@@ -33,7 +49,7 @@ def get_package_data_files(package, data, package_dir=None):
     since `package_data` ignores directories.
     """
     if package_dir is None:
-        package_dir = os.path.join(*package.split('.'))
+        package_dir = os.path.join(*package.split("."))
     all_files = []
     for f in data:
         path = os.path.join(package_dir, f)
@@ -51,38 +67,39 @@ def get_package_data_files(package, data, package_dir=None):
 
 setuptools.setup(
     name="paddlenlp",
-    version=paddlenlp.__version__,
+    version=__version__,
     author="PaddleNLP Team",
     author_email="paddlenlp@baidu.com",
-    description=
-    "Easy-to-use and powerful NLP library with Awesome model zoo, supporting wide-range of NLP tasks from research to industrial applications, including Neural Search, Question Answering, Information Extraction and Sentiment Analysis end-to-end system.",
+    description="Easy-to-use and powerful NLP library with Awesome model zoo, supporting wide-range of NLP tasks from research to industrial applications, including Neural Search, Question Answering, Information Extraction and Sentiment Analysis end-to-end system.",
     long_description=read("README_en.md"),
     long_description_content_type="text/markdown",
     url="https://github.com/PaddlePaddle/PaddleNLP",
+    license_files=("LICENSE",),
     packages=setuptools.find_packages(
-        where='.',
-        exclude=('examples*', 'tests*', 'applications*', 'faster_tokenizer*',
-                 'faster_generation*', 'model_zoo*')),
+        where=".",
+        exclude=("examples*", "tests*", "applications*", "fast_tokenizer*", "fast_generation*", "model_zoo*"),
+    ),
     package_data={
-        'paddlenlp.ops':
-        get_package_data_files('paddlenlp.ops', [
-            'CMakeLists.txt', 'README.md', 'cmake', 'faster_transformer',
-            'patches', 'optimizer'
-        ]),
-        'paddlenlp.transformers.layoutxlm':
-        get_package_data_files('paddlenlp.transformers.layoutxlm',
-                               ['visual_backbone.yaml']),
+        "paddlenlp.ops": get_package_data_files(
+            "paddlenlp.ops", ["CMakeLists.txt", "README.md", "cmake", "fast_transformer", "patches", "optimizer"]
+        ),
+        "paddlenlp.transformers.layoutxlm": get_package_data_files(
+            "paddlenlp.transformers.layoutxlm", ["visual_backbone.yaml"]
+        ),
     },
-    setup_requires=['cython', 'numpy'],
+    setup_requires=["cython", "numpy"],
     install_requires=REQUIRED_PACKAGES,
-    python_requires='>=3.6',
+    entry_points={"console_scripts": ["paddlenlp = paddlenlp.cli:main"]},
+    extras_require=extras,
+    python_requires=">=3.6",
     classifiers=[
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
-        'License :: OSI Approved :: Apache Software License',
-        'Operating System :: OS Independent',
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "License :: OSI Approved :: Apache Software License",
+        "Operating System :: OS Independent",
     ],
-    license='Apache 2.0')
+    license="Apache 2.0",
+)

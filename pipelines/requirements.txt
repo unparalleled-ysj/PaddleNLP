@@ -1,5 +1,6 @@
-paddlenlp
+paddlenlp>=2.5.1
 paddleocr
+pdf2image>1.14
 requests
 pydantic
 mmh3
@@ -12,12 +13,15 @@ python-docx
 nltk
 pdfplumber
 faiss-cpu>=1.7.2
-opencv-python
+opencv-python>=4.4
 opencv-contrib-python-headless
 python-multipart
 st-annotated-text
-streamlit==1.9.0
+click==8.0
+streamlit==1.11.1
 fastapi
 uvicorn
 markdown
 numba
+pymilvus>=2.1
+wordcloud==1.8.2.2

@@ -11,38 +11,42 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import io
 import os
-import setuptools
-import sys
-import pipelines
-import platform
 
-long_description = "PIPELINES: An End to End Natural Language Proceessing Development Kit Based on ERNIE"
+import setuptools
+
+description = "Paddle-Pipelines: An End to End Natural Language Proceessing Development Kit Based on PaddleNLP"
 
 with open("requirements.txt") as fin:
     REQUIRED_PACKAGES = fin.read()
 
-setuptools.setup(name="pipelines",
-                 version=pipelines.__version__,
-                 author="PaddlePaddle Speech and Language Team",
-                 author_email="paddlenlp@baidu.com",
-                 description=long_description,
-                 long_description=long_description,
-                 long_description_content_type="text/plain",
-                 url="https://github.com/PaddlePaddle/PaddleNLP",
-                 packages=setuptools.find_packages(
-                     where='.',
-                     exclude=('examples*', 'tests*', 'docs*', 'ui*',
-                              'rest_api*')),
-                 setup_requires=['cython', 'numpy'],
-                 install_requires=REQUIRED_PACKAGES,
-                 python_requires='>=3.7',
-                 classifiers=[
-                     'Programming Language :: Python :: 3',
-                     'Programming Language :: Python :: 3.7',
-                     'Programming Language :: Python :: 3.8',
-                     'Programming Language :: Python :: 3.9',
-                     'License :: OSI Approved :: Apache Software License',
-                     'Operating System :: OS Independent',
-                 ],
-                 license='Apache 2.0')
+
+def read(*names, **kwargs):
+    with io.open(os.path.join(os.path.dirname(__file__), *names), encoding=kwargs.get("encoding", "utf8")) as fp:
+        return fp.read()
+
+
+setuptools.setup(
+    name="paddle-pipelines",
+    version=read("VERSION"),
+    author="PaddlePaddle Speech and Language Team",
+    author_email="paddlenlp@baidu.com",
+    description=description,
+    long_description=read("README.md"),
+    long_description_content_type="text/markdown",
+    url="https://github.com/PaddlePaddle/PaddleNLP",
+    packages=setuptools.find_packages(where=".", exclude=("examples*", "tests*", "docs*", "ui*", "rest_api*")),
+    setup_requires=["cython", "numpy"],
+    install_requires=REQUIRED_PACKAGES,
+    python_requires=">=3.7",
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "License :: OSI Approved :: Apache Software License",
+        "Operating System :: OS Independent",
+    ],
+    license="Apache 2.0",
+)
