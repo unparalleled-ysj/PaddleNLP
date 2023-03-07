@@ -13,122 +13,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import paddle
+import paddle.nn.functional as F
+
+from ...utils.log import logger
 from ..dallebart.modeling import VQGanDetokenizer
-from ..gpt.modeling import GPTLMHeadModel, GPTLMHead, GPTModel
+from ..gpt.modeling import GPTLMHead, GPTLMHeadModel, GPTModel
+from .configuration import (
+    ARTIST_PRETRAINED_INIT_CONFIGURATION,
+    ARTIST_PRETRAINED_RESOURCE_FILES_MAP,
+    ArtistConfig,
+)
 
 __all__ = [
-    'ArtistModel',
-    'ArtistForImageGeneration',
-    'ArtistForConditionalGeneration',
+    "ArtistModel",
+    "ArtistForImageGeneration",
+    "ArtistForConditionalGeneration",
 ]
 
-pretrained_init_configuration = {
-    "pai-painter-base-zh": {
-        "vocab_size": 37512,
-        "hidden_size": 768,
-        "num_hidden_layers": 12,
-        "num_attention_heads": 12,
-        "intermediate_size": 3072,
-        "hidden_act": "gelu",
-        "hidden_dropout_prob": 0.0,
-        "attention_probs_dropout_prob": 0.0,
-        "max_position_embeddings": 288,
-        "type_vocab_size": 1,  # no use
-        "initializer_range": 0.02,
-        "pad_token_id": 16384,  # 0 + 16384
-        "eos_token_id": 16486,  # 102 + 16384
-        "bos_token_id": 16485,  # 101 + 16384
-        "eol_token_id": 16486,  # 102 + 16384
-    },
-    "pai-painter-painting-base-zh": {
-        "vocab_size": 37512,
-        "hidden_size": 768,
-        "num_hidden_layers": 12,
-        "num_attention_heads": 12,
-        "intermediate_size": 3072,
-        "hidden_act": "gelu",
-        "hidden_dropout_prob": 0.0,
-        "attention_probs_dropout_prob": 0.0,
-        "max_position_embeddings": 288,
-        "type_vocab_size": 1,  # no use
-        "initializer_range": 0.02,
-        "pad_token_id": 16384,  # 0 + 16384
-        "eos_token_id": 16486,  # 102 + 16384
-        "bos_token_id": 16485,  # 101 + 16384
-        "eol_token_id": 16486,  # 102 + 16384
-    },
-    "pai-painter-scenery-base-zh": {
-        "vocab_size": 37512,
-        "hidden_size": 768,
-        "num_hidden_layers": 12,
-        "num_attention_heads": 12,
-        "intermediate_size": 3072,
-        "hidden_act": "gelu",
-        "hidden_dropout_prob": 0.0,
-        "attention_probs_dropout_prob": 0.0,
-        "max_position_embeddings": 288,
-        "type_vocab_size": 1,  # no use
-        "initializer_range": 0.02,
-        "pad_token_id": 16384,  # 0 + 16384
-        "eos_token_id": 16486,  # 102 + 16384
-        "bos_token_id": 16485,  # 101 + 16384
-        "eol_token_id": 16486,  # 102 + 16384
-    },
-    "pai-painter-commercial-base-zh": {
-        "vocab_size": 37512,
-        "hidden_size": 768,
-        "num_hidden_layers": 12,
-        "num_attention_heads": 12,
-        "intermediate_size": 3072,
-        "hidden_act": "gelu",
-        "hidden_dropout_prob": 0.0,
-        "attention_probs_dropout_prob": 0.0,
-        "max_position_embeddings": 288,
-        "type_vocab_size": 1,  # no use
-        "initializer_range": 0.02,
-        "pad_token_id": 16384,  # 0 + 16384
-        "eos_token_id": 16486,  # 102 + 16384
-        "bos_token_id": 16485,  # 101 + 16384
-        "eol_token_id": 16486,  # 102 + 16384
-    },
-    "pai-painter-large-zh": {
-        "vocab_size": 37512,
-        "hidden_size": 1024,
-        "num_hidden_layers": 24,
-        "num_attention_heads": 16,
-        "intermediate_size": 4096,
-        "hidden_act": "gelu",
-        "hidden_dropout_prob": 0.0,
-        "attention_probs_dropout_prob": 0.0,
-        "max_position_embeddings": 288,
-        "type_vocab_size": 1,
-        "initializer_range": 0.02,
-        "pad_token_id": 16384,  # 0 + 16384
-        "eos_token_id": 16486,  # 102 + 16384
-        "bos_token_id": 16485,  # 101 + 16384
-        "eol_token_id": 16486,  # 102 + 16384
-    },
-}
-pretrained_resource_files_map = {
-    "model_state": {
-        "pai-painter-base-zh":
-        "https://bj.bcebos.com/paddlenlp/models/transformers/artist/pai-painter-base-zh/model_state.pdparams",
-        "pai-painter-painting-base-zh":
-        "https://bj.bcebos.com/paddlenlp/models/transformers/artist/pai-painter-painting-base-zh/model_state.pdparams",
-        "pai-painter-scenery-base-zh":
-        "https://bj.bcebos.com/paddlenlp/models/transformers/artist/pai-painter-scenery-base-zh/model_state.pdparams",
-        "pai-painter-commercial-base-zh":
-        "https://bj.bcebos.com/paddlenlp/models/transformers/artist/pai-painter-commercial-base-zh/model_state.pdparams",
-        "pai-painter-large-zh":
-        "https://bj.bcebos.com/paddlenlp/models/transformers/artist/pai-painter-large-zh/model_state.pdparams",
-    }
-}
+# set gelu_new
+F.gelu_python = F.gelu
 
 
 class ArtistModel(GPTModel):
-    pretrained_init_configuration = pretrained_init_configuration
-    pretrained_resource_files_map = pretrained_resource_files_map
+    pretrained_init_configuration = ARTIST_PRETRAINED_INIT_CONFIGURATION
+    pretrained_resource_files_map = ARTIST_PRETRAINED_RESOURCE_FILES_MAP
 
 
 class ArtistForConditionalGeneration(GPTLMHeadModel):
@@ -140,21 +50,19 @@ class ArtistForConditionalGeneration(GPTLMHeadModel):
             An instance of :class:`ArtistModel`.
 
     """
-    pretrained_init_configuration = pretrained_init_configuration
-    pretrained_resource_files_map = pretrained_resource_files_map
 
-    def __init__(self, gpt):
-        super().__init__(gpt)
-        self.lm_head = GPTLMHead(self.gpt.config["hidden_size"],
-                                 self.gpt.config["vocab_size"])
+    pretrained_init_configuration = ARTIST_PRETRAINED_INIT_CONFIGURATION
+    pretrained_resource_files_map = ARTIST_PRETRAINED_RESOURCE_FILES_MAP
+
+    def __init__(self, config: ArtistConfig):
+        super().__init__(config)
+        self.lm_head = GPTLMHead(config.hidden_size, config.vocab_size)
         self.apply(self.init_weights)
 
     @staticmethod
-    def prepare_attention_mask_for_generation(input_ids, pad_token_id,
-                                              eos_token_id):
+    def prepare_attention_mask_for_generation(input_ids, pad_token_id, eos_token_id):
         # we don't use attention_mask
-        attention_mask = paddle.zeros_like(input_ids,
-                                           dtype=paddle.get_default_dtype())
+        attention_mask = paddle.zeros_like(input_ids, dtype=paddle.get_default_dtype())
         return paddle.unsqueeze(attention_mask, axis=[1, 2])
 
 
@@ -166,26 +74,32 @@ class ArtistForImageGeneration(ArtistForConditionalGeneration):
             An instance of ArtistModel.
         image_vocab_size (int, optional):
             The vocabulary size of image.
-            Defaults to `16384`. 
+            Defaults to `16384`.
     """
-    pretrained_init_configuration = pretrained_init_configuration
-    pretrained_resource_files_map = pretrained_resource_files_map
+    pretrained_init_configuration = ARTIST_PRETRAINED_INIT_CONFIGURATION
+    pretrained_resource_files_map = ARTIST_PRETRAINED_RESOURCE_FILES_MAP
 
-    def __init__(self, gpt, image_vocab_size=16384):
-        super().__init__(gpt)
+    def __init__(self, config: ArtistConfig, image_vocab_size=16384):
+        super().__init__(config)
+        logger.warning(
+            f"'{__class__.__name__}' is now deprecated and will be removed after v2.6.0"
+            "Please Refer to PPDiffusers for Text-to-Image Capabilities"
+        )
         self.vqgan_detokenizer = VQGanDetokenizer(image_vocab_size, 256)
 
     @paddle.no_grad()
-    def generate(self,
-                 input_ids,
-                 attention_mask=None,
-                 top_k=0,
-                 top_p=1.0,
-                 temperature=1.0,
-                 num_return_sequences=1,
-                 use_faster=False,
-                 use_fp16_decoding=False,
-                 **kwargs):
+    def generate(
+        self,
+        input_ids,
+        attention_mask=None,
+        top_k=0,
+        top_p=1.0,
+        temperature=1.0,
+        num_return_sequences=1,
+        use_fast=False,
+        use_fp16_decoding=False,
+        **kwargs
+    ):
         r"""
         The ArtistForImageGeneration generate method.
         Args:
@@ -193,23 +107,23 @@ class ArtistForImageGeneration(ArtistForConditionalGeneration):
                 See :class:`ArtistForConditionalGeneration`.
             attention_mask (Tensor, optional):
                 See :class:`ArtistForConditionalGeneration`.
-            top_k (int, optional): The number of highest probability tokens to 
-                keep for top-k-filtering in the "sampling" strategy. Default to 
+            top_k (int, optional): The number of highest probability tokens to
+                keep for top-k-filtering in the "sampling" strategy. Default to
                 0, which means no effect.
-            top_p (float, optional): The cumulative probability for 
-                top-p-filtering in the "sampling" strategy. The value should 
-                satisfy :math:`0 <= top\_p < 1`. Default to 1.0, which means no 
+            top_p (float, optional): The cumulative probability for
+                top-p-filtering in the "sampling" strategy. The value should
+                satisfy :math:`0 <= top\_p < 1`. Default to 1.0, which means no
                 effect.
-            temperature (float, optional): The value used to module the next 
-                token probabilities in the "sampling" strategy. Default to 1.0, 
+            temperature (float, optional): The value used to module the next
+                token probabilities in the "sampling" strategy. Default to 1.0,
                 which means no effect.
-            num_return_sequences (int, optional): The number of returned 
+            num_return_sequences (int, optional): The number of returned
                 sequences for each sequence in the batch. Default to 1.
-            use_faster: (bool, optional): Whether to use faster entry of model 
-                for FasterGeneration. Default to False.
-            use_fp16_decoding: (bool, optional): Whether to use fp16 for decoding. 
-                Only works when faster entry is avalible. Default to False.
-                
+            use_fast: (bool, optional): Whether to use fast entry of model
+                for FastGeneration. Default to False.
+            use_fp16_decoding: (bool, optional): Whether to use fp16 for decoding.
+                Only works when fast entry is avalible. Default to False.
+
         Returns:
             Tensor: Returns tensor `images`, which is the output of :class:`VQGanDetokenizer`.
             Its data type should be uint8 and has a shape of [batch_size, num_return_sequences, 256, 256, 3].
@@ -247,21 +161,19 @@ class ArtistForImageGeneration(ArtistForConditionalGeneration):
         image_tokens = super().generate(
             input_ids=input_ids,
             max_length=256,
-            decode_strategy='sampling',
+            decode_strategy="sampling",
             attention_mask=attention_mask,
             top_k=top_k,
             top_p=top_p,
             temperature=temperature,
             num_return_sequences=num_return_sequences,
-            use_faster=use_faster,
+            use_fast=use_fast,
             use_fp16_decoding=use_fp16_decoding,
-            seq_len=paddle.ones((input_ids.shape[0], ), dtype="int32") * 32,
-            **kwargs)[0]
+            seq_len=paddle.ones((input_ids.shape[0],), dtype="int32") * 32,
+            **kwargs,
+        )[0]
         images = self.vqgan_detokenizer(image_tokens)
         # images shape [bs, num_return_sequences, 256, 256, 3]
-        images = images.reshape([
-            -1, num_return_sequences, images.shape[1], images.shape[2],
-            images.shape[3]
-        ])
+        images = images.reshape([-1, num_return_sequences, images.shape[1], images.shape[2], images.shape[3]])
         images = ((images + 1.0) * 127.5).clip(0, 255).astype("uint8")
         return images

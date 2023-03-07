@@ -1,12 +1,23 @@
-from typing import Any, Iterator, Tuple, List
+# Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import logging
 import os
-import pickle
 import random
-import signal
 from copy import deepcopy
-from itertools import islice
+from typing import List, Tuple
+
 import numpy as np
 import paddle
 
@@ -31,9 +42,7 @@ def set_all_seeds(seed: int, deterministic_cudnn: bool = False) -> None:
         pass
 
 
-def initialize_device_settings(use_cuda: bool,
-                               local_rank: int = -1,
-                               multi_gpu: bool = True) -> Tuple[List[str], int]:
+def initialize_device_settings(use_cuda: bool, local_rank: int = -1, multi_gpu: bool = True) -> Tuple[List[str], int]:
     """
     Returns a list of available devices.
 
@@ -46,11 +55,10 @@ def initialize_device_settings(use_cuda: bool,
         devices = [paddle.set_device("cpu")]
         n_gpu = 0
     elif local_rank == -1:
-        if 'gpu' in paddle.get_device():
+        if "gpu" in paddle.get_device():
             if multi_gpu:
                 devices = [
-                    paddle.set_device('gpu:{}'.format(device))
-                    for device in range(paddle.device.cuda.device_count())
+                    paddle.set_device("gpu:{}".format(device)) for device in range(paddle.device.cuda.device_count())
                 ]
                 n_gpu = paddle.device.cuda.device_count()
             else:
@@ -60,12 +68,10 @@ def initialize_device_settings(use_cuda: bool,
             devices = [paddle.set_device("cpu")]
             n_gpu = 0
     else:
-        devices = [paddle.set_device('gpu:{}'.format(local_rank))]
+        devices = [paddle.set_device("gpu:{}".format(local_rank))]
         n_gpu = 1
 
-    logger.info(
-        f"Using devices: {', '.join([str(device) for device in devices]).upper()}"
-    )
+    logger.info(f"Using devices: {', '.join([str(device) for device in devices]).upper()}")
     logger.info(f"Number of GPUs: {n_gpu}")
     return devices, n_gpu
 

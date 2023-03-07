@@ -13,14 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Optional, Dict, Any
-
-import os
 import logging
+import os
 import tempfile
-import subprocess
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 import pdfplumber
+
+try:
+    from pdf2image import convert_from_path
+except (ImportError, ModuleNotFoundError) as ie:
+    from pipelines.utils.import_utils import _optional_component_not_installed
+
+    _optional_component_not_installed(__name__, "ocr", ie)
 
 from pipelines.nodes.file_converter import BaseConverter, ImageToTextConverter
 
@@ -28,7 +34,6 @@ logger = logging.getLogger(__name__)
 
 
 class PDFToTextConverter(BaseConverter):
-
     def __init__(
         self,
         remove_numeric_tables: bool = False,
@@ -47,11 +52,9 @@ class PDFToTextConverter(BaseConverter):
                                 in garbled text.
         """
         # save init parameters to enable export of component config as YAML
-        self.set_config(remove_numeric_tables=remove_numeric_tables,
-                        valid_languages=valid_languages)
+        self.set_config(remove_numeric_tables=remove_numeric_tables, valid_languages=valid_languages)
 
-        super().__init__(remove_numeric_tables=remove_numeric_tables,
-                         valid_languages=valid_languages)
+        super().__init__(remove_numeric_tables=remove_numeric_tables, valid_languages=valid_languages)
 
     def convert(
         self,
@@ -107,14 +110,11 @@ class PDFToTextConverter(BaseConverter):
             cleaned_lines = []
             for line in lines:
                 words = line.split()
-                digits = [
-                    word for word in words if any(i.isdigit() for i in word)
-                ]
+                digits = [word for word in words if any(i.isdigit() for i in word)]
 
                 # remove lines having > 40% of words as digits AND not ending with a period(.)
                 if remove_numeric_tables:
-                    if words and len(digits) / len(
-                            words) > 0.4 and not line.strip().endswith("."):
+                    if words and len(digits) / len(words) > 0.4 and not line.strip().endswith("."):
                         logger.debug(f"Removing line '{line}' from {file_path}")
                         continue
                 cleaned_lines.append(line)
@@ -125,7 +125,8 @@ class PDFToTextConverter(BaseConverter):
             if not self.validate_language(document_text, valid_languages):
                 logger.warning(
                     f"The language for {file_path} is not one of {valid_languages}. The file may not have "
-                    f"been decoded in the correct text format.")
+                    f"been decoded in the correct text format."
+                )
 
         documents = []
         for page in cleaned_pages:
@@ -133,10 +134,7 @@ class PDFToTextConverter(BaseConverter):
             documents.append(document)
         return documents
 
-    def _read_pdf(self,
-                  file_path: Path,
-                  layout: bool,
-                  encoding: Optional[str] = "Latin1") -> List[str]:
+    def _read_pdf(self, file_path: Path, layout: bool, encoding: Optional[str] = "Latin1") -> List[str]:
         """
         Extract pages from the pdf file at file_path.
 
@@ -153,7 +151,6 @@ class PDFToTextConverter(BaseConverter):
 
 
 class PDFToTextOCRConverter(BaseConverter):
-
     def __init__(
         self,
         remove_numeric_tables: bool = False,
@@ -174,14 +171,11 @@ class PDFToTextOCRConverter(BaseConverter):
                                 in garbled text.
         """
         # init image to text instance
-        self.image_2_text = ImageToTextConverter(remove_numeric_tables,
-                                                 valid_languages)
+        self.image_2_text = ImageToTextConverter(remove_numeric_tables, valid_languages)
 
         # save init parameters to enable export of component config as YAML
-        self.set_config(remove_numeric_tables=remove_numeric_tables,
-                        valid_languages=valid_languages)
-        super().__init__(remove_numeric_tables=remove_numeric_tables,
-                         valid_languages=valid_languages)
+        self.set_config(remove_numeric_tables=remove_numeric_tables, valid_languages=valid_languages)
+        super().__init__(remove_numeric_tables=remove_numeric_tables, valid_languages=valid_languages)
 
     def convert(
         self,
@@ -215,12 +209,9 @@ class PDFToTextOCRConverter(BaseConverter):
         try:
             images = convert_from_path(file_path)
             for image in images:
-                temp_img = tempfile.NamedTemporaryFile(dir=os.path.dirname(
-                    os.path.realpath(__file__)),
-                                                       suffix=".jpeg")
+                temp_img = tempfile.NamedTemporaryFile(dir=os.path.dirname(os.path.realpath(__file__)), suffix=".jpeg")
                 image.save(temp_img.name)
-                pages.append(
-                    self.image_2_text.convert(temp_img.name)[0]["content"])
+                pages.append(self.image_2_text.convert(temp_img.name)[0]["content"])
         except Exception as exception:
             logger.error(f"File {file_path} has an error \n {exception}")
 

@@ -129,11 +129,15 @@ Trainer 是一个简单，但功能完整的 Paddle训练和评估模块，并�
         The dataset to use for training. If it is an `datasets.Dataset`, columns not accepted by the
         `model.forward()` method are automatically removed.
 
-    eval_dataset（`paddle.io.Dataset`，可选）：
+    eval_dataset（`paddle.io.Dataset` 或 `Dict[str, paddle.io.Dataset]`，可选）：
         用于评估的数据集。如果是 `datasets.Dataset`，那么
         `model.forward()` 不需要的输入字段会被自动删除。
+        如果它是一个字典，则将对字典中每个数据集进行评估，
+        并将字典中的键添加到评估指标名称前。
 
-        The dataset to use for evaluation.
+        The dataset to use for evaluation. If it is a [`~datasets.Dataset`], columns not accepted by the
+        `model.forward()` method are automatically removed. If it is a dictionary, it will evaluate on each
+        dataset prepending the dictionary key to the metric name.
 
     tokenizer（[`PretrainedTokenizer`]，可选）：
         用于数据预处理的tokenizer。如果传入，将用于自动Pad输入
@@ -166,6 +170,14 @@ Trainer 是一个简单，但功能完整的 Paddle训练和评估模块，并�
         (`Tuple[paddle.optimizer.Optimizer, paddle.optimizer.lr.LRScheduler]`, *optional*)
         A tuple containing the optimizer and the scheduler to use. Will default to an instance of [`AdamW`] on your model
         and a scheduler  [`LinearDecayWithWarmup`].
+
+    preprocess_logits_for_metrics (`Callable[[paddle.Tensor, paddle.Tensor], paddle.Tensor]`, 可选）)：
+        一个函数, 在每次评估之前对logits进行预处理。
+
+        (`Callable[[paddle.Tensor, paddle.Tensor], paddle.Tensor]`, *optional*)
+        A function that preprocess the logits right before caching them at each evaluation step. Must take two
+        tensors, the logits and the labels, and return the logits once processed as desired. The modifications made
+        by this function will be reflected in the predictions received by `compute_metrics`.
 ```
 
 
@@ -373,6 +385,16 @@ Trainer 是一个简单，但功能完整的 Paddle训练和评估模块，并�
                         Random seed that will be set at the beginning of
                         training. (default: 42)
 
+  --bf16
+                        是否使用 bf16 混合精度训练而不是 fp32 训练。需要 Ampere 或更高的 NVIDIA
+                        显卡架构支持。这是实验性质的API，以后可能会修改。
+                        (`bool`, 可选, 默认为 `False`)
+
+                        Whether to use bf16 (mixed) precision instead of
+                        32-bit. Requires Ampere or higher NVIDIA architecture.
+                        This is an experimental API and it may change.
+                        (default: False)
+
   --fp16
                         是否使用 fp16 混合精度训练而不是 fp32 训练。
                         (`bool`, 可选, 默认为 `False`)
@@ -381,7 +403,9 @@ Trainer 是一个简单，但功能完整的 Paddle训练和评估模块，并�
                         32-bit (default: False)
 
   --fp16_opt_level
-                        混合精度训练模式，可为``O1``或``O2``模式，默认``O1``模式，默认O1. 只在fp16选项开启时候生效
+                        混合精度训练模式，可为``O1``或``O2``模式，默认``O1``模式，默认O1.
+                        O1表示混合精度训练，O2表示纯fp16/bf16训练。
+                        只在fp16或bf16选项开启时候生效.
                         (`str`, 可选, 默认为 `O1`)
 
                         For fp16: AMP optimization level selected in
@@ -390,10 +414,49 @@ Trainer 是一个简单，但功能完整的 Paddle训练和评估模块，并�
                         dle/amp/auto_cast_cn.html (default: O1)
 
   --scale_loss
-                        FP16训练时，scale_loss的初始值。
+                        fp16/bf16训练时，scale_loss的初始值。
                         （`float`，可选，默认为 32768）
 
                         The value of initial scale_loss for fp16. (default: 32768)
+
+  --sharding
+                        是否使用Paddle的Sharding数据并行功能，用户的参数。支持sharding `stage1`, `stage2` or `stage3`。
+                        其中`stage2``stage3`可以和`offload`组合使用。
+                        每个种策略分别为：
+                            stage1 : optimizer 中的参数切分到不同卡
+                            stage2 : optimizer  + gradient 中的参数切分到不同卡
+                            stage3 : parameter + gradient + optimizer  中的参数都切分到不同卡
+                            offload ： offload parameters to cpu 部分参数存放到cpu中
+                         (`str`,  可选, 默认为 `` 不使用sharding)
+                         注意：当前stage3暂时不可用
+
+                        Whether or not to use Paddle Sharding Data Parallel training (in distributed training
+                        only). The base option should be `stage1`, `stage2` or `stage3` and you can add
+                        CPU-offload to `stage2` or `stage3` like this: `stage2 offload` or `stage3 offload`.
+                        Each stage means:
+                            stage1 : optimizer state segmentation
+                            stage2 : optimizer state + gradient segmentation
+                            stage3 : parameter + gradient + optimizer state segmentation
+                            offload ： offload parameters to cpu
+                        NOTICE： stage3 is temporarily unavaliable.
+
+  --sharding_degree
+                        设置sharding的通信组参数，表示通信组的大小。同一个sharding通信组内的参数，进行sharding，分布到不同卡上。
+                        不同sharding通信组之间，相当于单纯的数据并行。此选项只在sharding选项开启时候生效。
+                        默认值为-1，表示所有训练的卡在同一个通信组内。
+                        (`int`, 可选, 默认为 `-1`)
+
+                        Sharding parameter in certain cards group. For example, aussume we use 2 machines each
+                        with 8 cards, then set sharding_degree=8, sharding will only communication inside machine.
+                        default -1 means sharding parameters between all workers. (`int`, *optional*, defaults to `-1`)
+
+  --recompute
+                        是否使用重计算训练。可以节省显存。
+                        重新计算前向过程以获取梯度，减少中间变量显存.
+                        注：需要组网支持 recompute，默认使用 enable_recompute 关键字作为recompute功能开关。
+                        (`bool`, 可选, 默认为 `False`)
+
+                        Recompute the forward pass to calculate gradients. Used for saving memory (default: False)
 
   --minimum_eval_times
                         最少评估次数，如果当前设置的eval_steps，评估次数少于minimum_eval_times，
@@ -489,5 +552,15 @@ Trainer 是一个简单，但功能完整的 Paddle训练和评估模块，并�
                         是否从断点重启恢复训练，(可选，默认为 None)
                         The path to a folder with a valid checkpoint for your
                         model. (default: None)
+
+  --skip_memory_metrics
+                       是否跳过内存profiler检测。（可选，默认为True，跳过）
+                       Whether or not to skip adding of memory profiler reports
+                       to metrics.(default:True)
+
+  --flatten_param_grads
+                       是否在优化器中使用flatten_param_grads策略，该策略将素有参数摊平后输入Optimizer更新。目前该策略仅在NPU设备上生效。（可选，默认为False）
+                       Whether use flatten_param_grads method in optimizer,
+                       only used on NPU devices.(default:False)
 
 ```

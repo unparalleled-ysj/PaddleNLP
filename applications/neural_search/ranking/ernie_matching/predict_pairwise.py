@@ -36,6 +36,7 @@ parser.add_argument("--input_file", type=str, required=True, help="The full path
 parser.add_argument("--params_path", type=str, required=True, help="The path to model parameters to be loaded.")
 parser.add_argument("--max_seq_length", default=64, type=int, help="The maximum total input sequence length after tokenization. "
     "Sequences longer than this will be truncated, sequences shorter will be padded.")
+parser.add_argument('--model_name_or_path', default="ernie-3.0-medium-zh", help="The pretrained model used for training")
 parser.add_argument("--batch_size", default=32, type=int, help="Batch size per GPU/CPU for training.")
 parser.add_argument('--device', choices=['cpu', 'gpu'], default="gpu", help="Select which device to train model, defaults to gpu.")
 args = parser.parse_args()
@@ -48,7 +49,7 @@ def predict(model, data_loader):
 
     Args:
         model (obj:`SemanticIndexBase`): A model to extract text embedding or calculate similarity of text pair.
-        data_loaer (obj:`List(Example)`): The processed data ids of text pair: [query_input_ids, query_token_type_ids, title_input_ids, title_token_type_ids]
+        data_loader (obj:`List(Example)`): The processed data ids of text pair: [query_input_ids, query_token_type_ids, title_input_ids, title_token_type_ids]
     Returns:
         results(obj:`List`): cosine similarity of text pairs.
     """
@@ -60,11 +61,10 @@ def predict(model, data_loader):
         for batch_data in data_loader:
             input_ids, token_type_ids = batch_data
 
-            batch_prob = model.predict(input_ids=input_ids,
-                                       token_type_ids=token_type_ids).numpy()
+            batch_prob = model.predict(input_ids=input_ids, token_type_ids=token_type_ids).numpy()
 
             batch_probs.append(batch_prob)
-        if (len(batch_prob) == 1):
+        if len(batch_prob) == 1:
             batch_probs = np.array(batch_probs)
         else:
             batch_probs = np.concatenate(batch_probs, axis=0)
@@ -75,29 +75,21 @@ def predict(model, data_loader):
 if __name__ == "__main__":
     paddle.set_device(args.device)
 
-    pretrained_model = AutoModel.from_pretrained('ernie-3.0-medium-zh')
-    tokenizer = AutoTokenizer.from_pretrained('ernie-3.0-medium-zh')
+    pretrained_model = AutoModel.from_pretrained(args.model_name_or_path)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
 
-    trans_func = partial(convert_example,
-                         tokenizer=tokenizer,
-                         max_seq_length=args.max_seq_length,
-                         phase="predict")
+    trans_func = partial(convert_example, tokenizer=tokenizer, max_seq_length=args.max_seq_length, phase="predict")
 
     batchify_fn = lambda samples, fn=Tuple(
         Pad(axis=0, pad_val=tokenizer.pad_token_id, dtype="int64"),  # input_ids
-        Pad(axis=0, pad_val=tokenizer.pad_token_type_id, dtype="int64"
-            ),  # segment_ids
+        Pad(axis=0, pad_val=tokenizer.pad_token_type_id, dtype="int64"),  # segment_ids
     ): [data for data in fn(samples)]
 
-    valid_ds = load_dataset(read_text_pair,
-                            data_path=args.input_file,
-                            lazy=False)
+    valid_ds = load_dataset(read_text_pair, data_path=args.input_file, lazy=False)
 
-    valid_data_loader = create_dataloader(valid_ds,
-                                          mode='predict',
-                                          batch_size=args.batch_size,
-                                          batchify_fn=batchify_fn,
-                                          trans_fn=trans_func)
+    valid_data_loader = create_dataloader(
+        valid_ds, mode="predict", batch_size=args.batch_size, batchify_fn=batchify_fn, trans_fn=trans_func
+    )
 
     model = PairwiseMatching(pretrained_model)
 
@@ -106,14 +98,11 @@ if __name__ == "__main__":
         model.set_dict(state_dict)
         print("Loaded parameters from %s" % args.params_path)
     else:
-        raise ValueError(
-            "Please set --params_path with correct pretrained model file")
+        raise ValueError("Please set --params_path with correct pretrained model file")
 
     y_probs = predict(model, valid_data_loader)
 
-    valid_ds = load_dataset(read_text_pair,
-                            data_path=args.input_file,
-                            lazy=False)
+    valid_ds = load_dataset(read_text_pair, data_path=args.input_file, lazy=False)
 
     for idx, prob in enumerate(y_probs):
         text_pair = valid_ds[idx]

@@ -1,3 +1,17 @@
+# Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import time
 import logging
 import subprocess
@@ -18,9 +32,8 @@ def launch_es(sleep=15, delete_existing=False):
     logger.debug("Starting Elasticsearch ...")
     if delete_existing:
         _ = subprocess.run(
-            [f"docker rm --force {ELASTICSEARCH_CONTAINER_NAME}"],
-            shell=True,
-            stdout=subprocess.DEVNULL)
+            [f"docker rm --force {ELASTICSEARCH_CONTAINER_NAME}"], shell=True, stdout=subprocess.DEVNULL
+        )
     status = subprocess.run(
         [
             f'docker run -d -p 9200:9200 -e "discovery.type=single-node" --name {ELASTICSEARCH_CONTAINER_NAME} elasticsearch:7.9.2'
@@ -43,9 +56,7 @@ def launch_opensearch(sleep=15, delete_existing=False):
     # This line is needed since it is not possible to start a new docker container with the name opensearch if there is a stopped image with the same now
     # docker rm only succeeds if the container is stopped, not if it is running
     if delete_existing:
-        _ = subprocess.run([f"docker rm --force {OPENSEARCH_CONTAINER_NAME}"],
-                           shell=True,
-                           stdout=subprocess.DEVNULL)
+        _ = subprocess.run([f"docker rm --force {OPENSEARCH_CONTAINER_NAME}"], shell=True, stdout=subprocess.DEVNULL)
     status = subprocess.run(
         [
             f'docker run -d -p 9201:9200 -p 9600:9600 -e "discovery.type=single-node" --name {OPENSEARCH_CONTAINER_NAME} opensearchproject/opensearch:1.2.4'
@@ -119,9 +130,7 @@ def stop_service(document_store, delete_container=False):
     elif "WeaviateDocumentStore" in ds_class:
         stop_weaviate(delete_container)
     else:
-        logger.warning(
-            f"No support yet for auto stopping the service behind a {type(document_store)}"
-        )
+        logger.warning(f"No support yet for auto stopping the service behind a {type(document_store)}")
 
 
 def launch_milvus(sleep=15, delete_existing=False):
@@ -138,8 +147,7 @@ def launch_milvus(sleep=15, delete_existing=False):
     with open(milvus_dir / "docker-compose.yml", "wb") as f:
         f.write(request.content)
 
-    status = subprocess.run(["cd /home/$USER/milvus/ && docker-compose up -d"],
-                            shell=True)
+    status = subprocess.run(["cd /home/$USER/milvus/ && docker-compose up -d"], shell=True)
 
     if status.returncode:
         logger.warning(
