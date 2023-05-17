@@ -25,6 +25,13 @@ python gradio_canny2image.py
 ```
 ![image](https://user-images.githubusercontent.com/20476674/222131385-0dfaa370-fb11-4b2b-9ef5-36143557578b.png)
 
+## Hed to Image
+采用Hed边缘检测图片作为控制条件。
+```
+python gradio_hed2image.py
+```
+![image](https://user-images.githubusercontent.com/20476674/223642261-d5bdbd83-06f9-459b-8224-486f2235f7a6.png)
+
 
 ## Pose to Image
 采用OpenPose姿态图片作为控制条件。
@@ -32,12 +39,35 @@ python gradio_canny2image.py
 python gradio_pose2image.py
 ```
 ![image](https://user-images.githubusercontent.com/20476674/222131475-4dc8582a-d2a2-447a-9724-85461de04c26.png)
+
 ## Semantic Segmentation to Image
 采用ADE20K分割协议的图片作为控制条件。
 ```
 python gradio_seg2image_segmenter.py
 ```
 ![image](https://user-images.githubusercontent.com/20476674/222131908-b0c52512-ef42-4e4b-8fde-62c12c600ff2.png)
+
+## Depth to Image
+采用Depth深度检测图片作为控制条件。
+```
+python gradio_depth2image.py
+```
+![image](https://user-images.githubusercontent.com/31800336/236171819-29085f22-c99c-4f63-b0a0-7cce6ac98ebc.jpg)
+
+## Normal to Image
+采用Normal检测图片作为控制条件。
+```
+python gradio_normal2image.py
+```
+![image](https://user-images.githubusercontent.com/31800336/236171840-f31a4f1c-9997-41c0-83ca-4f87ca4cc870.jpg)
+
+## Hough Line to Image
+采用HoughLine检测图片作为控制条件。
+```
+python gradio_hough2image.py
+```
+![image](https://user-images.githubusercontent.com/31800336/236171830-f9254b66-9fbd-46d3-a3bc-e905c87d0ec3.jpg)
+
 # ControlNet模型训练
 
 ## Fill50K 训练例子
@@ -71,7 +101,6 @@ python -u train_txt2img_control_trainer.py \
     --dataloader_num_workers 4 \
     --pretrained_model_name_or_path runwayml/stable-diffusion-v1-5 \
     --max_grad_norm -1 \
-    --use_paddle_conv_init True \
     --file_path ./fill50k \
     --recompute True \
     --overwrite_output_dir
@@ -140,7 +169,6 @@ python -u -m paddle.distributed.launch --gpus "0,1,2,3,4,5,6,7" train_txt2img_co
     --pretrained_model_name_or_path runwayml/stable-diffusion-v1-5 \
     --max_grad_norm -1 \
     --file_path ./fill50k \
-    --use_paddle_conv_init True \
     --recompute True \
     --overwrite_output_dir
 ```

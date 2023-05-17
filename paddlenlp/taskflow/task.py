@@ -131,6 +131,12 @@ class Task(metaclass=abc.ABCMeta):
         Check files required by the task.
         """
         for file_id, file_name in self.resource_files_names.items():
+            if self.task in ["information_extraction"]:
+                dygraph_file = ["model_state.pdparams"]
+            else:
+                dygraph_file = ["model_state.pdparams", "config.json"]
+            if self.is_static_model and file_name in dygraph_file:
+                continue
             path = os.path.join(self._task_path, file_name)
             url = self.resource_files_urls[self.model][file_id][0]
             md5 = self.resource_files_urls[self.model][file_id][1]
@@ -196,7 +202,7 @@ class Task(metaclass=abc.ABCMeta):
                 logger.info((">>> [InferBackend] INT8 inference on CPU ..."))
         elif paddle.get_device().split(":", 1)[0] == "npu":
             self._config.disable_gpu()
-            self._config.enable_npu(self.kwargs["device_id"])
+            self._config.enable_custom_device("npu", self.kwargs["device_id"])
         else:
             if self._infer_precision == "int8":
                 logger.info(
@@ -327,7 +333,7 @@ class Task(metaclass=abc.ABCMeta):
             _base_path = (
                 self._task_path
                 if not self.from_hf_hub
-                else os.path.join(self._home_path, "taskflow", self.task, self.model)
+                else os.path.join(self._home_path, "taskflow", self.task, self._task_path)
             )
             self.inference_model_path = os.path.join(_base_path, "static", "inference")
             if not os.path.exists(self.inference_model_path + ".pdiparams") or self._param_updated:

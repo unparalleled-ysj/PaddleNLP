@@ -438,12 +438,12 @@ class UIETask(Task):
         },
         "__internal_testing__/tiny-random-uie-x": {
             "model_state": [
-                "https://bj.bcebos.com/paddlenlp/models/community/__internal_testing__/tiny-random-uie-x/model_state.pdparams",
-                "b62bdbfec23ee839c5d0a8a7e6920075",
+                "https://bj.bcebos.com/paddlenlp/models/community/__internal_testing__/tiny-random-uie-x_v1.0/model_state.pdparams",
+                "d9b573b31a82b860b6e5a3005d7b879e",
             ],
             "config": [
-                "https://bj.bcebos.com/paddlenlp/models/community/__internal_testing__/tiny-random-uie-x/config.json",
-                "abeaeacca5316e2cbe779f37d986efb4",
+                "https://bj.bcebos.com/paddlenlp/models/community/__internal_testing__/tiny-random-uie-x_v1.0/config.json",
+                "27d715e680596a69d882056a400d97db",
             ],
             "vocab_file": [
                 "https://bj.bcebos.com/paddlenlp/models/community/__internal_testing__/tiny-random-uie-x/vocab.txt",
@@ -488,6 +488,8 @@ class UIETask(Task):
             "__internal_testing__/tiny-random-uie-x",
         ]:
             self.resource_files_names["sentencepiece_model_file"] = "sentencepiece.bpe.model"
+        elif "sentencepiece_model_file" in self.resource_files_names.keys():
+            del self.resource_files_names["sentencepiece_model_file"]
 
         # TODO: temporary solution to support HF Hub due to lack of AutoModel
         # change this logic to use AutoConfig when available
@@ -508,9 +510,6 @@ class UIETask(Task):
                 with open(os.path.join(self._task_path, CONFIG_NAME)) as f:
                     self._init_class = json.load(f)["architectures"].pop()
 
-        if self._init_class not in ["UIEX", "UIEM"]:
-            if "sentencepiece_model_file" in self.resource_files_names.keys():
-                del self.resource_files_names["sentencepiece_model_file"]
         self._is_en = True if model in ["uie-base-en"] or self._schema_lang == "en" else False
 
         if self._init_class in ["UIEX"]:

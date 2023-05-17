@@ -29,12 +29,14 @@ class TestUIETask(unittest.TestCase):
 
         cls.uie_m = Taskflow(
             task="information_extraction",
-            model="__internal_testing__/tiny-random-uie-m",
+            task_path="PaddleCI/tiny-random-uie-m",
+            from_hf_hub=True,
         )
 
         cls.uie_x = Taskflow(
             task="information_extraction",
-            model="__internal_testing__/tiny-random-uie-x",
+            task_path="PaddleCI/tiny-random-uie-x",
+            from_hf_hub=True,
         )
 
     def test_entity_extraction(self):
