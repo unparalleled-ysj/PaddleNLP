@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import numpy as np
 import paddle
 import paddle.nn as nn
 from paddle.optimizer.lr import LambdaDecay
@@ -37,8 +38,16 @@ class BloomTrainer(Trainer):
         ignore_keys: Optional[List[str]] = None,
     ) -> Tuple[Optional[paddle.Tensor], Optional[paddle.Tensor], Optional[paddle.Tensor]]:
 
-        if not self.do_generation:
+        if prediction_loss_only:
             return super().prediction_step(model, inputs, prediction_loss_only, ignore_keys)
+        elif not self.do_generation:
+            loss, logits, labels = super().prediction_step(model, inputs, prediction_loss_only, ignore_keys)
+            # argmax here to avoid gather all logits, which is too memory-consuming.
+            # keepdim in order to maintain the same shape as logits
+            if model.config.lm_shift_labels:
+                return (loss, logits[0][..., :-1, :].argmax(axis=-1, keepdim=True), labels[..., 1:])
+            else:
+                return (loss, logits[0].argmax(axis=-1, keepdim=True), labels)
 
         model.eval()
         with paddle.no_grad():
@@ -83,6 +92,14 @@ class BloomTrainer(Trainer):
         if self.lr_scheduler is None:
             self.lr_scheduler = LambdaDecay(self.args.learning_rate, lr_lambda, last_epoch=-1)
         return self.lr_scheduler
+
+    def log(self, logs: Dict[str, float], **kwargs) -> None:
+        if "loss" in logs:
+            logs["ppl"] = np.exp(logs["loss"])
+        if "eval_loss" in logs:
+            logs["eval_ppl"] = np.exp(logs["eval_loss"])
+
+        super(BloomTrainer, self).log(logs, **kwargs)
 
 
 def compute_metrics(predictions, references):

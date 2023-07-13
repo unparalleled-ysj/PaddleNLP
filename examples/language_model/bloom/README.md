@@ -10,64 +10,135 @@ BLOOM是一种自回归大型语言模型(LLM)，在大量文本数据上训练�
 支持单个模型进行模型并行的生成式微调，示例脚本如下所示：
 
 ```shell
-python -m paddle.distributed.launch --log_dir our_log --gpus "0,1,2,3" finetune_generation.py \
+python -m paddle.distributed.launch --gpus "0,1,2,3" finetune_generation.py \
     --model_name_or_path bigscience/bloom-560m \
-    --num_train_epochs 4 \
-    --learning_rate 1e-6 \
-    --warmup_ratio 0.06 \
-    --weight_decay 0.1 \
-    --label_smoothing 0.1 \
-    --save_steps 100 \
-    --logging_steps 1 \
-    --eval_steps 100 \
+    --task_name_or_path "dureader_qg" \
     --output_dir ./checkpoints/bloom-560m \
-    --src_length 500 \
-    --tgt_length 100 \
-    --min_tgt_length 0 \
-    --per_device_eval_batch_size 8 \
     --per_device_train_batch_size 4 \
-    --gradient_accumulation_steps 32 \
-    --max_grad_norm 1.0 \
-    --scale_loss 32768 \
-    --lr_scheduler_type linear \
-    --do_train \
-    --do_eval \
+    --gradient_accumulation_steps 2 \
+    --per_device_eval_batch_size 8 \
+    --num_train_epochs 1 \
+    --learning_rate 3e-5 \
+    --warmup_steps 30 \
+    --logging_steps 1 \
+    --evaluation_strategy epoch \
+    --save_strategy epoch \
+    --src_length 1024 \
+    --tgt_length 1024 \
     --fp16 \
     --fp16_opt_level O2 \
+    --do_train \
+    --do_eval \
+    --disable_tqdm True \
+    --load_best_model_at_end True \
+    --metric_for_best_model accuracy \
+    --eval_with_do_generation False \
+    --tensor_parallel_degree 4 \
     --recompute \
-    --tensor_parallel_degree 4
+    --save_total_limit 1 \
+    --scale_loss 32768 \
+    --overwrite_output_dir
 ```
 
 支持大模型的模型并行微调，设置 `tensor_parallel_degree` 就是模型并行的并行度
 
+支持单个模型进行单卡LoRA微调，示例脚本如下所示：
+
 ```shell
-python -m paddle.distributed.launch --log_dir our_log --gpus "0,1,2,3" finetune_generation.py \
+python finetune_generation.py \
     --model_name_or_path bigscience/bloom-560m \
-    --num_train_epochs 4 \
-    --learning_rate 1e-6 \
-    --warmup_ratio 0.06 \
-    --weight_decay 0.1 \
-    --label_smoothing 0.1 \
-    --save_steps 20 \
-    --logging_steps 1 \
-    --eval_steps 20 \
+    --task_name_or_path "dureader_qg" \
     --output_dir ./checkpoints/bloom-560m \
-    --src_length 500 \
-    --tgt_length 100 \
-    --min_tgt_length 0 \
-    --per_device_eval_batch_size 8 \
     --per_device_train_batch_size 4 \
-    --gradient_accumulation_steps 32 \
-    --max_grad_norm 1.0 \
-    --scale_loss 32768 \
-    --lr_scheduler_type linear \
-    --do_train \
-    --do_eval \
+    --gradient_accumulation_steps 2 \
+    --per_device_eval_batch_size 8 \
+    --num_train_epochs 2 \
+    --learning_rate 3e-4 \
+    --warmup_steps 30 \
+    --logging_steps 1 \
+    --evaluation_strategy epoch \
+    --save_strategy epoch \
+    --src_length 1024 \
+    --tgt_length 1024 \
     --fp16 \
     --fp16_opt_level O2 \
+    --do_train \
+    --do_eval \
+    --disable_tqdm True \
+    --load_best_model_at_end True \
+    --metric_for_best_model accuracy \
+    --eval_with_do_generation False \
     --recompute \
-    --tensor_parallel_degree 4
+    --save_total_limit 1 \
+    --overwrite_output_dir \
+    --lora True \
+    --lora_rank 8
 ```
+
+支持单个模型进行单卡Prefix微调，示例脚本如下所示：
+
+```shell
+python finetune_generation.py \
+    --model_name_or_path bigscience/bloom-560m \
+    --task_name_or_path "dureader_qg" \
+    --output_dir ./checkpoints/bloom-560m \
+    --per_device_train_batch_size 4 \
+    --gradient_accumulation_steps 2 \
+    --per_device_eval_batch_size 8 \
+    --num_train_epochs 2 \
+    --learning_rate 3e-4 \
+    --warmup_steps 30 \
+    --logging_steps 1 \
+    --evaluation_strategy epoch \
+    --save_strategy epoch \
+    --src_length 1024 \
+    --tgt_length 1024 \
+    --fp16 \
+    --fp16_opt_level O2 \
+    --do_train \
+    --do_eval \
+    --disable_tqdm True \
+    --load_best_model_at_end True \
+    --metric_for_best_model accuracy \
+    --eval_with_do_generation False \
+    --recompute \
+    --save_total_limit 1 \
+    --overwrite_output_dir \
+    --prefix_tuning True \
+    --num_prefix_tokens 64
+```
+
+其中参数释义如下：
+
+- `model_name_or_path`: 预训练模型内置名称或者模型所在目录，默认为`facebook/llama-7b`。
+- `num_train_epochs`: 要执行的训练 epoch 总数（如果不是整数，将在停止训练之前执行最后一个 epoch
+的小数部分百分比）。
+- `max_steps`: 模型训练步数。
+- `label_smoothing`: 标签平滑参数。
+- `learning_rate`: 参数更新的学习率。
+- `warmup_steps`: 学习率热启的步数。
+- `eval_steps`: 模型评估的间隔步数。
+- `logging_steps`: 训练日志打印的间隔步数。
+- `save_steps`: 模型参数保存的间隔步数。
+- `save_total_limit`: 模型 checkpoint 保存的份数。
+- `output_dir`: 模型参数保存目录。
+- `src_length`: 上下文的最大输入长度，默认为128.
+- `tgt_length`: 生成文本的最大长度，默认为160.
+- `gradient_accumulation_steps`: 模型参数梯度累积的步数，可用于扩大 batch size。实际的 batch_size = per_device_train_batch_size * gradient_accumulation_steps。
+- `fp16`: 使用 float16 精度进行模型训练和推理。
+- `fp16_opt_level`: float16 精度训练模式，`O2`表示纯 float16 训练。
+- `recompute`: 使用重计算策略，开启后可节省训练显存。
+- `do_train`: 是否训练模型。
+- `do_eval`: 是否评估模型。
+- `tensor_parallel_degree`: 模型并行数量。
+- `do_generation`: 在评估的时候是否调用model.generate,默认为False。
+- `lora`: 是否使用LoRA技术。
+- `lora_path`: 初始化lora参数和配置文件路径。
+- `lora_rank`: lora 算法中rank（秩）的值。
+- `merge_weights`: 是否合并原始模型和Lora模型的权重。
+- `prefix_tuning`: 是否使用Prefix技术。
+- `num_prefix_tokens`: prefix tuning算法中前缀token数量。
+
 ## 模型动态图预测
 
 
@@ -88,6 +159,22 @@ python -m paddle.distributed.launch --gpus "0,1,2,3" predict_generation.py \
  python predict_generation.py --model_name_or_path ./save
 ```
 
+### LoRA微调模型预测
+对merge后的单分片模型也可以进行直接预测，脚本如下
+```shell
+ python predict_generation.py
+    --model_name_or_path bigscience/bloom-560m \
+    --lora_path ./checkpoints/bloom-560m
+```
+
+### Prefix微调模型预测
+对merge后的单分片模型也可以进行直接预测，脚本如下
+```shell
+ python predict_generation.py
+    --model_name_or_path bigscience/bloom-560m \
+    --prefix_path ./checkpoints/bloom-560m
+```
+
 ## 模型导出
 
 当在指定数据集上 finetune 过后可导出模型部署，此时将会体验到paddle内置的加速优化，针对于不同任务提供了相同的导出脚本：
@@ -97,6 +184,16 @@ python -m paddle.distributed.launch --gpus "0,1,2,3" predict_generation.py \
 python export_generation_model.py --model_name_or_path ./save  --output_path inference/bloom
 ```
 **NOTICE**: 动转静输入的动态图参数必须要是单分片参数checkpoint
+
+当在指定数据集上进行 LoRA finetune 后的导出脚本：
+
+
+```shell
+python export_generation_model.py
+    --model_name_or_path bigscience/bloom-560m
+    --output_path inference/bloom
+    --lora_path ./checkpoints/bloom-560m
+```
 
 ## 模型部署
 对动转静的后的模型可以进行静态图部署，具体执行脚本如下：

@@ -24,11 +24,12 @@ from ..utils import BaseOutput
 
 SCHEDULER_CONFIG_NAME = "scheduler_config.json"
 
-
 # NOTE: We make this type an enum because it simplifies usage in docs and prevents
 # circular imports when used for `_compatibles` within the schedulers module.
 # When it's used as a type in pipelines, it really is a Union because the actual
 # scheduler instance is passed in.
+
+
 class KarrasDiffusionSchedulers(Enum):
     DDIMScheduler = 1
     DDPMScheduler = 2
@@ -137,10 +138,11 @@ class SchedulerMixin:
         </Tip>
 
         """
-        config, kwargs = cls.load_config(
+        config, kwargs, commit_hash = cls.load_config(
             pretrained_model_name_or_path=pretrained_model_name_or_path,
             subfolder=subfolder,
             return_unused_kwargs=True,
+            return_commit_hash=True,
             **kwargs,
         )
         return cls.from_config(config, return_unused_kwargs=return_unused_kwargs, **kwargs)

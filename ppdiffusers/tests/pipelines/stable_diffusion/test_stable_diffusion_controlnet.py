@@ -1,5 +1,4 @@
-# coding=utf-8
-# Copyright 2023 HuggingFace Inc.
+# Copyright (c) 2023 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,11 +17,6 @@ import unittest
 
 import numpy as np
 import paddle
-from ppdiffusers_test.pipeline_params import (
-    TEXT_TO_IMAGE_BATCH_PARAMS,
-    TEXT_TO_IMAGE_PARAMS,
-)
-from ppdiffusers_test.test_pipelines_common import PipelineTesterMixin
 
 from paddlenlp.transformers import CLIPTextConfig, CLIPTextModel, CLIPTokenizer
 from ppdiffusers import (
@@ -35,6 +29,9 @@ from ppdiffusers import (
 from ppdiffusers.utils import load_image, load_numpy, randn_tensor, slow
 from ppdiffusers.utils.import_utils import is_ppxformers_available
 from ppdiffusers.utils.testing_utils import require_paddle_gpu
+
+from ..pipeline_params import TEXT_TO_IMAGE_BATCH_PARAMS, TEXT_TO_IMAGE_PARAMS
+from ..test_pipelines_common import PipelineTesterMixin
 
 
 class StableDiffusionControlNetPipelineFastTests(PipelineTesterMixin, unittest.TestCase):

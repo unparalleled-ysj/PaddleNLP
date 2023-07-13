@@ -22,12 +22,14 @@ from ..utils.import_utils import (
 )
 
 if is_paddle_available():
+    from .adapter import MultiAdapter, T2IAdapter
     from .autoencoder_kl import AutoencoderKL
     from .controlnet import ControlNetModel
     from .dual_transformer_2d import DualTransformer2DModel
     from .ema import LitEma
     from .modeling_utils import ModelMixin
     from .prior_transformer import PriorTransformer
+    from .t5_film_transformer import T5FilmDecoder
     from .transformer_2d import Transformer2DModel
     from .unet_1d import UNet1DModel
     from .unet_2d import UNet2DModel
